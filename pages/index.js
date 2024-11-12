@@ -172,10 +172,10 @@ const ShogiBoard = () => {
    };
 
   return (
-    <div className="p-5 m-5 mx-auto">
+    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
     <div className="container">
       <h2>Shogi - Turn: {currentPlayer === "white" ? "White" : "Black"}</h2>
-      <div className="board">
+      <div className="board mx-auto max-w-5xl">
         {board?.map((row, rowIndex) => (
           <div key={rowIndex} className="row">
             {row?.map((cell, colIndex) => {
