@@ -172,6 +172,7 @@ const ShogiBoard = () => {
    };
 
   return (
+    <div className="p-5 m-5 mx-auto">
     <div className="container">
       <h2>Shogi - Turn: {currentPlayer === "white" ? "White" : "Black"}</h2>
       <div className="board">
@@ -227,6 +228,7 @@ const ShogiBoard = () => {
         </div>
       </div>
     </div>
+  </div>
   );
 };
 
