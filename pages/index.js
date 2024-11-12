@@ -172,10 +172,9 @@ const ShogiBoard = () => {
    };
 
   return (
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-    <div className="container">
+    <div className="container board-grid mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
       <h2>Shogi - Turn: {currentPlayer === "white" ? "White" : "Black"}</h2>
-      <div className="board mx-auto max-w-5xl">
+      <div className="board mx-auto max-w-3xl">
         {board?.map((row, rowIndex) => (
           <div key={rowIndex} className="row">
             {row?.map((cell, colIndex) => {
@@ -228,7 +227,6 @@ const ShogiBoard = () => {
         </div>
       </div>
     </div>
-  </div>
   );
 };
 
