@@ -47,186 +47,286 @@ const ShogiBoard = () => {
     K: "/images/pieces/white/whiteKing.svg",
   };
 
-  
-  
+  // State management
+  const [board, setBoard] = useState(initialBoard);
+  const [currentPlayer, setCurrentPlayer] = useState("white");
+  const [selectedPiece, setSelectedPiece] = useState(null);
+  const [possibleMoves, setPossibleMoves] = useState([]);
+  const [capturedWhite, setCapturedWhite] = useState([]);
+  const [capturedBlack, setCapturedBlack] = useState([]);
+  const BOARD_SIZE = 9; // Shogi is played on a 9x9 board
 
-   // State management
-   const [board, setBoard] = useState(initialBoard);
-   const [currentPlayer, setCurrentPlayer] = useState("white");
-   const [selectedPiece, setSelectedPiece] = useState(null);
-   const [possibleMoves, setPossibleMoves] = useState([]);
-   const [capturedWhite, setCapturedWhite] = useState([]);
-   const [capturedBlack, setCapturedBlack] = useState([]);
- 
-   const isWithinBounds = (row, col) => row >= 0 && row < 9 && col >= 0 && col < 9;
- 
-   const pieceMovements = {
-     p: { normal: [{ x: 0, y: 1 }], promoted: [{ x: 0, y: 1 }, { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: -1 }, { x: 1, y: -1 }, { x: -1, y: -1 }] },
-     P: { normal: [{ x: 0, y: -1 }], promoted: [{ x: 0, y: -1 }, { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 }, { x: -1, y: 1 }] },
-     l: { normal: Array.from({ length: 8 }, (_, i) => ({ x: 0, y: -(i + 1) })), promoted: [{ x: 0, y: 1 }, { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: -1 }] },
-     L: { normal: Array.from({ length: 8 }, (_, i) => ({ x: 0, y: i + 1 })), promoted: [{ x: 0, y: -1 }, { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }] },
-     n: { normal: [{ x: 1, y: -2 }, { x: -1, y: -2 }], promoted: [{ x: 0, y: -1 }, { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }] },
-     N: { normal: [{ x: 1, y: 2 }, { x: -1, y: 2 }], promoted: [{ x: 0, y: 1 }, { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: -1 }] },
-     s: { normal: [{ x: 1, y: -1 }, { x: -1, y: -1 }, { x: 0, y: -1 }, { x: 1, y: 1 }, { x: -1, y: 1 }], promoted: [{ x: 0, y: -1 }, { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }] },
-     S: { normal: [{ x: 1, y: 1 }, { x: -1, y: 1 }, { x: 0, y: 1 }, { x: 1, y: -1 }, { x: -1, y: -1 }], promoted: [{ x: 0, y: 1 }, { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: -1 }] },
-     g: { normal: [{ x: 0, y: -1 }, { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 1, y: -1 }, { x: -1, y: -1 }] },
-     G: { normal: [{ x: 0, y: 1 }, { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: -1 }] },
-     b: { normal: [{ x: 1, y: 1 }, { x: -1, y: 1 }, { x: 1, y: -1 }, { x: -1, y: -1 }], promoted: [{ x: 1, y: 1 }, { x: -1, y: 1 }, { x: 1, y: -1 }, { x: -1, y: -1 }, { x: 0, y: 1 }] },
-     B: { normal: [{ x: 1, y: -1 }, { x: -1, y: -1 }, { x: 1, y: 1 }, { x: -1, y: 1 }], promoted: [{ x: 1, y: 1 }, { x: -1, y: 1 }, { x: 1, y: -1 }] },
-     r: { normal: Array.from({ length: 8 }, (_, i) => [{ x: 0, y: i + 1 }, { x: i + 1, y: 0 }, { x: 0, y: -(i + 1) }]), promoted: [{ x: 1, y: 1 }, { x: -1, y: 1 }, { x: 0, y: 1 }] },
-     k: { normal: [{ x: 0, y: 1 }, { x: 1, y: 0 }] },
-   };
- 
-   const getPossibleMoves = (piece, row, col) => {
-    const isPromoted = piece.includes("+");
-    const isWhitePiece = piece === piece.toUpperCase();
-    const moveType = isPromoted ? "promoted" : "normal";
-    const movements = pieceMovements[piece.toLowerCase()]?.[moveType] || [];
-
-    const validMoves = [];
-
-    movements.forEach(({ x, y }) => {
-      let newRow = row + (isWhitePiece ? -y : y); // White moves up, Black moves down
-      let newCol = col + x;
-
-      // Handle unrestricted movement for Rook and Bishop
-      if ((piece.toLowerCase() === "r" || piece.toLowerCase() === "b") && !isPromoted) {
-        let i = 1;
-        while (isWithinBounds(newRow, newCol) && board[newRow][newCol] === " ") {
-          validMoves.push({ row: newRow, col: newCol });
-          newRow += (isWhitePiece ? -y : y) * i;
-          newCol += x * i;
-          i++;
-        }
-        if (isWithinBounds(newRow, newCol) && isEnemyPiece(board[newRow][newCol])) {
-          validMoves.push({ row: newRow, col: newCol });
-        }
-      } else if (isWithinBounds(newRow, newCol)) {
-        const targetPiece = board[newRow][newCol];
-        if (targetPiece === " " || isEnemyPiece(targetPiece)) {
-          validMoves.push({ row: newRow, col: newCol });
-        }
-      }
-    });
-
-    return validMoves;
+  const pieceMovements = {
+    p: { 
+      normal: [{ x: 0, y: 1 }], // Unpromoted Pawn
+      promoted: [
+        { x: 0, y: 1 }, { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: -1 }, 
+        { x: 1, y: -1 }, { x: -1, y: -1 }
+      ] // Gold General moves
+    },
+    P: { 
+      normal: [{ x: 0, y: -1 }], // Unpromoted White Pawn
+      promoted: [
+        { x: 0, y: -1 }, { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, 
+        { x: 1, y: 1 }, { x: -1, y: 1 }
+      ]
+    },
+    l: { 
+      normal: Array.from({ length: 8 }, (_, i) => ({ x: 0, y: -(i + 1) })), // Unpromoted Lance
+      promoted: [
+        { x: 0, y: 1 }, { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: -1 }, 
+        { x: 1, y: -1 }, { x: -1, y: -1 }
+      ]
+    },
+    L: { 
+      normal: Array.from({ length: 8 }, (_, i) => ({ x: 0, y: i + 1 })), // Unpromoted White Lance
+      promoted: [
+        { x: 0, y: -1 }, { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, 
+        { x: 1, y: 1 }, { x: -1, y: 1 }
+      ]
+    },
+    n: { 
+      normal: [{ x: 1, y: -2 }, { x: -1, y: -2 }], // Unpromoted Knight
+      promoted: [
+        { x: 0, y: -1 }, { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, 
+        { x: 1, y: -1 }, { x: -1, y: -1 }
+      ]
+    },
+    N: { 
+      normal: [{ x: 1, y: 2 }, { x: -1, y: 2 }], // Unpromoted White Knight
+      promoted: [
+        { x: 0, y: 1 }, { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: -1 }, 
+        { x: 1, y: 1 }, { x: -1, y: 1 }
+      ]
+    },
+    s: { 
+      normal: [
+        { x: 1, y: -1 }, { x: -1, y: -1 }, { x: 0, y: -1 }, { x: 1, y: 1 }, { x: -1, y: 1 }
+      ], // Unpromoted Silver General
+      promoted: [
+        { x: 0, y: -1 }, { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, 
+        { x: 1, y: -1 }, { x: -1, y: -1 }
+      ]
+    },
+    S: { 
+      normal: [
+        { x: 1, y: 1 }, { x: -1, y: 1 }, { x: 0, y: 1 }, { x: 1, y: -1 }, { x: -1, y: -1 }
+      ],
+      promoted: [
+        { x: 0, y: 1 }, { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: -1 }, 
+        { x: 1, y: 1 }, { x: -1, y: 1 }
+      ]
+    },
+    g: { 
+      normal: [
+        { x: 0, y: -1 }, { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, 
+        { x: 1, y: -1 }, { x: -1, y: -1 }
+      ] 
+    },
+    G: { 
+      normal: [
+        { x: 0, y: 1 }, { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: -1 }, 
+        { x: 1, y: 1 }, { x: -1, y: 1 }
+      ] 
+    },
   };
+ // Helper function to capture a piece and add it to the opponent's captured list
+const capturePiece = (piece, currentPlayer, capturedWhite, capturedBlack) => {
+  // Convert the captured piece to the opponent's unpromoted form
+  const unpromotedPiece = piece.replace("+", "").toUpperCase();
 
-  const isEnemyPiece = (piece) => {
-    if (!piece || piece === " ") return false;
-    return currentPlayer === "white" ? piece === piece.toLowerCase() : piece === piece.toUpperCase();
-  };
+  if (currentPlayer === "white") {
+    // Black captured the piece
+    return {
+      capturedWhite: [...capturedWhite, unpromotedPiece],
+      capturedBlack,
+    };
+  } else {
+    // White captured the piece
+    return {
+      capturedWhite,
+      capturedBlack: [...capturedBlack, unpromotedPiece],
+    };
+  }
+};
 
-  const handleSelectPiece = (row, col) => {
-    const piece = board[row][col];
-    if (piece && ((currentPlayer === "white" && piece === piece.toUpperCase()) || (currentPlayer === "black" && piece === piece.toLowerCase()))) {
-      setSelectedPiece({ piece, row, col });
-      setPossibleMoves(getPossibleMoves(piece, row, col));
-    } else {
-      setSelectedPiece(null);
-      setPossibleMoves([]);
+// Check if a piece is eligible for promotion based on its type and position
+const promoteIfEligible = (piece, targetY, currentPlayer) => {
+  // Define promotion zone for each player
+  const promotionZone = currentPlayer === "white" ? [0, 1, 2] : [6, 7, 8];
+  const promotablePieces = ["p", "l", "n", "s", "b", "r", "P", "L", "N", "S", "B", "R"];
+
+  // Check if the piece is promotable and in the promotion zone
+  if (promotablePieces.includes(piece) && promotionZone.includes(targetY)) {
+    return `${piece}+`; // Return promoted piece notation
+  }
+
+  return piece; // No promotion, return original piece
+};
+
+// Handle the selection of a piece
+const selectPiece = (x, y) => {
+  const piece = board[y][x];
+
+  // Check if the selected piece belongs to the current player
+  if (
+    (currentPlayer === "white" && piece === piece?.toUpperCase()) ||
+    (currentPlayer === "black" && piece === piece?.toLowerCase())
+  ) {
+    setSelectedPiece({ x, y });
+    setPossibleMoves(calculatePossibleMoves(x, y, piece, currentPlayer));
+  }
+};
+
+// Move a piece to a new position
+const movePiece = (targetX, targetY) => {
+  if (!selectedPiece) return;
+
+  const { x, y } = selectedPiece;
+  let piece = board[y][x];
+  let updatedCapturedWhite = capturedWhite;
+  let updatedCapturedBlack = capturedBlack;
+
+  // Capture opponent's piece if present
+  const targetPiece = board[targetY][targetX];
+  if (targetPiece !== " ") {
+    const captureResult = capturePiece(targetPiece, currentPlayer, capturedWhite, capturedBlack);
+    updatedCapturedWhite = captureResult.capturedWhite;
+    updatedCapturedBlack = captureResult.capturedBlack;
+  }
+
+  // Check for promotion eligibility
+  piece = promoteIfEligible(piece, targetY, currentPlayer);
+
+  // Update board and state
+  const newBoard = board?.map((row, rowIndex) =>
+    row.map((cell, colIndex) => {
+      if (rowIndex === y && colIndex === x) return " "; // Clear old position
+      if (rowIndex === targetY && colIndex === targetX) return piece; // Place piece in new position
+      return cell; // Keep other cells unchanged
+    })
+  );
+
+  // Update states
+  setBoard(newBoard);
+  setCapturedWhite(updatedCapturedWhite);
+  setCapturedBlack(updatedCapturedBlack);
+  setSelectedPiece(null);
+  setPossibleMoves([]);
+  setCurrentPlayer(currentPlayer === "white" ? "black" : "white"); // Switch player turn
+};
+
+// Calculate possible moves for a selected piece
+const calculatePossibleMoves = (x, y, piece, currentPlayer) => {
+  const moves = [];
+
+  // Check if the piece is defined and a valid piece (not empty or invalid)
+  if (!piece || piece === " ") {
+    return moves; // If no valid piece is selected, return empty possible moves
+  }
+
+  const isPromoted = piece.includes("+");
+  const movementPattern = pieceMovements[piece.toLowerCase()]?.[isPromoted ? "promoted" : "normal"];
+
+  if (!movementPattern) {
+    return moves; // If no movement pattern found for the piece, return empty moves
+  }
+
+  movementPattern.forEach((move) => {
+    const targetX = x + move.x;
+    const targetY = y + (currentPlayer === "white" ? -move.y : move.y);
+
+    if (
+      targetX >= 0 &&
+      targetX < BOARD_SIZE &&
+      targetY >= 0 &&
+      targetY < BOARD_SIZE &&
+      (board[targetY][targetX] === " " || board[targetY][targetX].toUpperCase() !== piece?.toUpperCase())
+    ) {
+      moves.push({ x: targetX, y: targetY });
     }
-  };
+  });
 
-  const handleMovePiece = (toRow, toCol) => {
-    if (!selectedPiece) return;
+  return moves;
+};
 
-    const { row, col, piece } = selectedPiece;
-    const validMove = possibleMoves?.some((move) => move.row === toRow && move.col === toCol);
 
-    if (validMove) {
-      const newBoard = board?.map((r) => r.slice());
-      if (newBoard[toRow][toCol] !== " ") capturePiece(newBoard[toRow][toCol]);
-      newBoard[toRow][toCol] = promoteIfEligible(piece, toRow);
-      newBoard[row][col] = " ";
-      setBoard(newBoard);
-      setCurrentPlayer(currentPlayer === "white" ? "black" : "white");
-      setSelectedPiece(null);
-      setPossibleMoves([]);
-    } else {
-      setSelectedPiece(null);
-      setPossibleMoves([]);
-    }
-  };
-
-  const capturePiece = (piece) => {
-    if (piece === piece.toUpperCase()) setCapturedBlack((prev) => [...prev, piece]);
-    else setCapturedWhite((prev) => [...prev, piece]);
-  };
-
-  // Promote piece if it enters the promotion zone
-  const promoteIfEligible = (piece, row) => {
-    if (piece === "p" && row === 0 || piece === "P" && row === 7) {
-      return piece + "+";  // Promote pawn
-    }
-    return piece;
-  };
-  
- 
-   const handleSquareClick = (row, col) => {
-     if (selectedPiece) {
-       handleMovePiece(row, col);
-     } else {
-       handleSelectPiece(row, col);
-     }
-   };
-
-  return (
-    <div className="container board-grid mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-      <h2>Shogi - Turn: {currentPlayer === "white" ? "White" : "Black"}</h2>
-      <div className="board mx-auto max-w-3xl">
-        {board?.map((row, rowIndex) => (
-          <div key={rowIndex} className="row">
-            {row?.map((cell, colIndex) => {
-              const isHighlighted = possibleMoves?.some((move) => move.row === rowIndex && move.col === colIndex);
-              return (
-                <div
-                  key={colIndex}
-                  className={`cell ${isHighlighted ? "highlight" : ""}`}
-                  onClick={() => handleSquareClick(rowIndex, colIndex)}
-                >
-                  {cell !== " " && (
-                    <Image className="object-center object-scale-down aspect-auto w-auto h-auto" src={pieceImages[cell]} alt={cell} width={50} height={50} priority={true} unoptimized={true} />
-                  )}
-                </div>
-              );
-            })}
-          </div>
+return (
+  <><div className="container flex flex-col items-center">
+    <div className="captured-pieces flex justify-between w-full mb-4">
+      <div className="captured-black flex space-x-2">
+        {capturedBlack.map((piece, index) => (
+          <Image
+            width={32}
+            height={32}
+            key={`black-${index}`}
+            src={pieceImages[piece]}
+            alt={`${piece}`}
+            className="w-6 h-6" />
         ))}
       </div>
-      <div className="captured">
-        <div>
-          <h3>Captured by White</h3>
-          <div className={"capturedPieces inline-flex flex-row flex-wrap"}>
-            {capturedWhite?.map((cp, index) => (
-              <Image
-                className="object-center object-scale-down aspect-auto w-auto h-auto"
-                key={index}
-                src={pieceImages[cp.toLowerCase()]}
-                alt={cp}
-                width={30}
-                height={30}
-              />
-            ))}
-          </div>
-        </div>
-        <div>
-          <h3>Captured by Black</h3>
-          <div className="capturedPieces inline-flex flex-row flex-wrap">
-            {capturedBlack?.map((cp, index) => (
-              <Image
-                className="object-center object-scale-down aspect-auto w-auto h-auto"
-                key={index}
-                src={pieceImages[cp.toUpperCase()]}
-                alt={cp}
-                width={30}
-                height={30}
-              />
-            ))}
-          </div>
-        </div>
+      <div className="captured-white flex space-x-2">
+        {capturedWhite.map((piece, index) => (
+          <Image
+            width={32}
+            height={32}
+            key={`white-${index}`}
+            src={pieceImages[piece]}
+            alt={`${piece}`}
+            className="w-6 h-6" />
+        ))}
       </div>
     </div>
+
+    <div className="shogi-board board board-grid grid-cols-9 grid-rows-9 gap-1 border border-gray-500 p-1 bg-yellow-200">
+      {board.map((row, y) => row.map((cell, x) => (
+        <div
+          key={`${x}-${y}`}
+          className={`grid-cell w-12 h-12 flex items-center justify-center border border-gray-400
+              ${selectedPiece && selectedPiece.x === x && selectedPiece.y === y ? "bg-blue-300" : ""}
+              ${possibleMoves.some(move => move.x === x && move.y === y) ? "bg-green-200" : ""}
+              ${currentPlayer === "white" ? "rotate-180" : ""}
+            `}
+          onClick={() => (selectedPiece ? movePiece(x, y) : selectPiece(x, y))}
+        >
+          {cell !== " " && (
+            <Image className="object-center object-scale-down aspect-auto w-auto h-auto" src={pieceImages[cell]} alt={cell} width={50} height={50} priority={true} unoptimized={true} />
+          )}
+        </div>
+      )))};
+
+    </div>
+
+  </div><div className="captured">
+      <div>
+        <h3>Captured by White</h3>
+        <div className={"capturedPieces inline-flex flex-row flex-wrap"}>
+          {capturedWhite?.map((cp, index) => (
+            <Image
+              className="object-center object-scale-down aspect-auto w-auto h-auto"
+              key={index}
+              src={pieceImages[cp.toLowerCase()]}
+              alt={cp}
+              width={30}
+              height={30} />
+          ))}
+        </div>
+      </div>
+      <div>
+        <h3>Captured by Black</h3>
+        <div className="capturedPieces inline-flex flex-row flex-wrap">
+          {capturedBlack?.map((cp, index) => (
+            <Image
+              className="object-center object-scale-down aspect-auto w-auto h-auto"
+              key={index}
+              src={pieceImages[cp.toUpperCase()]}
+              alt={cp}
+              width={30}
+              height={30} />
+          ))}
+        </div>
+      </div>
+    </div></>
   );
 };
 
