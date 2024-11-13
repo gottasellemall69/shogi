@@ -178,6 +178,34 @@ const selectPiece = (x, y) => {
   }
 };
 
+
+// Helper function to validate if a target move is within calculated possible moves
+const isMoveAllowed = (targetX, targetY) => {
+  return possibleMoves.some((move) => move.x === targetX && move.y === targetY);
+};
+
+
+// Function to check if a king is missing, indicating a win condition
+const checkWinCondition = (board) => {
+  let whiteKingExists = false;
+  let blackKingExists = false;
+
+  // Scan the board to see if both kings are present
+  board.forEach(row => {
+    row.forEach(cell => {
+      if (cell === "K") whiteKingExists = true; // White king found
+      if (cell === "k") blackKingExists = true; // Black king found
+    });
+  });
+
+  // If either king is missing, return the winning player
+  if (!whiteKingExists) return "black"; // Black wins if white king is missing
+  if (!blackKingExists) return "white"; // White wins if black king is missing
+
+  return null; // No win condition met
+};
+
+
 // Move a piece to a new position
 const movePiece = (targetX, targetY) => {
   if (!selectedPiece) return;
@@ -206,6 +234,14 @@ const movePiece = (targetX, targetY) => {
       return cell; // Keep other cells unchanged
     })
   );
+
+   // Check for win condition after the move
+   const winner = checkWinCondition(newBoard);
+   if (winner) {
+     alert(`${winner} wins!`); // Display win message
+     setBoard(initialBoard); // Reset the board or implement any other end-game logic
+     return; // Stop further execution
+   }
 
   // Update states
   setBoard(newBoard);
@@ -252,45 +288,24 @@ const calculatePossibleMoves = (x, y, piece, currentPlayer) => {
 
 
 return (
-  <><div className="container flex flex-col items-center">
-    <div className="captured-pieces flex justify-between w-full mb-4">
-      <div className="captured-black flex space-x-2">
-        {capturedBlack.map((piece, index) => (
-          <Image
-            width={32}
-            height={32}
-            key={`black-${index}`}
-            src={pieceImages[piece]}
-            alt={`${piece}`}
-            className="w-6 h-6" />
-        ))}
-      </div>
-      <div className="captured-white flex space-x-2">
-        {capturedWhite.map((piece, index) => (
-          <Image
-            width={32}
-            height={32}
-            key={`white-${index}`}
-            src={pieceImages[piece]}
-            alt={`${piece}`}
-            className="w-6 h-6" />
-        ))}
-      </div>
-    </div>
+  <>
+  <div className="container flex flex-col items-center">
+    <h1 className=" mb-24 text-4xl font-black text-black drop-shadow-sm text-center sm:text-left max-w-prose">Current Player:{` ${currentPlayer} `}</h1>
 
     <div className="shogi-board board board-grid grid-cols-9 grid-rows-9 gap-1 border border-gray-500 p-1 bg-yellow-200">
       {board.map((row, y) => row.map((cell, x) => (
         <div
           key={`${x}-${y}`}
-          className={`grid-cell w-12 h-12 flex items-center justify-center border border-gray-400
+          className={`grid-cell w-full h-full flex items-center justify-center border border-gray-400
               ${selectedPiece && selectedPiece.x === x && selectedPiece.y === y ? "bg-blue-300" : ""}
               ${possibleMoves.some(move => move.x === x && move.y === y) ? "bg-green-200" : ""}
-              ${currentPlayer === "white" ? "rotate-180" : ""}
+              ${currentPlayer === "white" ? "rotate-0" : "rotate-180"}
+              ${currentPlayer === "black" ? "rotate-180" : "rotate-0"}
             `}
           onClick={() => (selectedPiece ? movePiece(x, y) : selectPiece(x, y))}
         >
           {cell !== " " && (
-            <Image className="object-center object-scale-down aspect-auto w-auto h-auto" src={pieceImages[cell]} alt={cell} width={50} height={50} priority={true} unoptimized={true} />
+            <Image className="object-center object-scale-down aspect-auto w-full h-full" src={pieceImages[cell]} alt={cell} width={50} height={50} priority={true} unoptimized={true} />
           )}
         </div>
       )))};
