@@ -299,8 +299,8 @@ return (
           className={`grid-cell w-full h-full flex items-center justify-center border border-gray-400
               ${selectedPiece && selectedPiece.x === x && selectedPiece.y === y ? "bg-blue-300" : ""}
               ${possibleMoves.some(move => move.x === x && move.y === y) ? "bg-green-200" : ""}
-              ${currentPlayer === "white" ? "rotate-0" : "rotate-180"}
-              ${currentPlayer === "black" ? "rotate-180" : "rotate-0"}
+              ${currentPlayer === "white" ? "rotate-0"  : "rotate-180" ? "rotate-180" : ""}
+              ${currentPlayer === "black" ? "rotate-180" : "rotate-180" ? "rotate-0" : ""}
             `}
           onClick={() => (selectedPiece ? movePiece(x, y) : selectPiece(x, y))}
         >
