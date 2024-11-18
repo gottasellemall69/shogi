@@ -17,34 +17,34 @@ const ShogiBoard = () => {
 
   // Mapping of piece types to image paths
   const pieceImages = {
-    p: "/images/pieces/black/pawn.svg",
-    P: "/images/pieces/white/Pawn.svg",
-    "p+": "/images/pieces/black/pawn+.svg",
-    "P+": "/images/pieces/white/Pawn+.svg",
-    l: "/images/pieces/black/lance.svg",
-    L: "/images/pieces/white/Lance.svg",
-    "l+": "/images/pieces/black/lance+.svg",
-    "L+": "/images/pieces/white/Lance+.svg",
-    n: "/images/pieces/black/knight.svg",
-    N: "/images/pieces/white/Knight.svg",
-    "n+": "/images/pieces/black/knight+.svg",
-    "N+": "/images/pieces/white/Knight+.svg",
-    s: "/images/pieces/black/silvergeneral.svg",
-    S: "/images/pieces/white/SilverGeneral.svg",
-    "s+": "/images/pieces/black/silvergeneral+.svg",
-    "S+": "/images/pieces/white/SilverGeneral+.svg",
-    g: "/images/pieces/black/goldgeneral.svg",
-    G: "/images/pieces/white/GoldGeneral.svg",
-    b: "/images/pieces/black/bishop.svg",
-    B: "/images/pieces/white/Bishop.svg",
-    "b+": "/images/pieces/black/bishop+.svg",
-    "B+": "/images/pieces/white/Bishop+.svg",
-    r: "/images/pieces/black/rook.svg",
-    R: "/images/pieces/white/Rook.svg",
-    "r+": "/images/pieces/black/rook+.svg",
-    "R+": "/images/pieces/white/Rook+.svg",
-    k: "/images/pieces/black/king.svg",
-    K: "/images/pieces/white/King.svg",
+    p: "../images/pieces/black/pawn.svg",
+    P: "../images/pieces/white/Pawn.svg",
+    "p+": "../images/pieces/black/pawn+.svg",
+    "P+": "../images/pieces/white/Pawn+.svg",
+    l: "../images/pieces/black/lance.svg",
+    L: "../images/pieces/white/Lance.svg",
+    "l+": "../images/pieces/black/lance+.svg",
+    "L+": "../images/pieces/white/Lance+.svg",
+    n: "../images/pieces/black/knight.svg",
+    N: "../images/pieces/white/Knight.svg",
+    "n+": "../images/pieces/black/knight+.svg",
+    "N+": "../images/pieces/white/Knight+.svg",
+    s: "../images/pieces/black/silvergeneral.svg",
+    S: "../images/pieces/white/SilverGeneral.svg",
+    "s+": "../images/pieces/black/silvergeneral+.svg",
+    "S+": "../images/pieces/white/SilverGeneral+.svg",
+    g: "../images/pieces/black/goldgeneral.svg",
+    G: "../images/pieces/white/GoldGeneral.svg",
+    b: "../images/pieces/black/bishop.svg",
+    B: "../images/pieces/white/Bishop.svg",
+    "b+": "../images/pieces/black/bishop+.svg",
+    "B+": "../images/pieces/white/Bishop+.svg",
+    r: "../images/pieces/black/rook.svg",
+    R: "../images/pieces/white/Rook.svg",
+    "r+": "../images/pieces/black/rook+.svg",
+    "R+": "../images/pieces/white/Rook+.svg",
+    k: "../images/pieces/black/king.svg",
+    K: "../images/pieces/white/King.svg",
   };
 
   
@@ -542,17 +542,17 @@ const ShogiBoard = () => {
     </h1>
     <div className="shogi-board">
       {board.map((row, x) =>
-        row.map((cell, y) => (
+        row.map((piece, y) => (
           <div
             key={`${y}-${x}`}
             className={`cell ${Array.isArray(possibleMoves) && possibleMoves.some(([px, py]) => px === x && py === y) ? "highlight" : ""}`}
             onClick={() =>  selectedPiece ? handleSquareClick(x, y) : handlePieceSelect(x, y)}
           >
-            {cell !== " " && (
+            {piece !== " " && (
               <Image
                 className="object-center object-scale-down"
-                src={pieceImages[cell]}
-                alt={cell}
+                src={pieceImages[piece]}
+                alt={piece}
                 width={45}
                 height={45}
               />
