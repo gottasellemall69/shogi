@@ -29,13 +29,13 @@ body {
 }
 
 .shogi-board {
-  display: inline-grid;
+  display: grid;
   grid-template-columns: repeat(9, 1fr);
   grid-template-rows: repeat(9, 1fr);
   gap: 2px;
-  border: 2px solid #333;
-  margin: 10px auto;
-  width: fit-content;
+  width: 500px;
+  height: 500px;
+  background-color: #f0d9b5;
 }
 
 .square {
@@ -63,18 +63,22 @@ button {
 }
 
 .cell {
-  width: 50px;
-  height: 50px;
+  width: 100%;
+  height: 100%;
   display: flex;
-  align-items: center;
   justify-content: center;
-  border: 1px solid #333;
-  font-size: 24px;
-  cursor: pointer;
+  align-items: center;
+  background-color: #ffcc66;
+  border: 1px solid #aaa;
 }
 
 .cell.highlight {
-  background-color: rgba(255, 223, 107, 0.6);
+  background-color: #ffe066;
+}
+
+.capturedPieces {
+  display: flex;
+  gap: 5px;
 }
 
 #player-captured, #opponent-captured {
