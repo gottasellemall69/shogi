@@ -24,6 +24,12 @@ body {
   padding: 10px;
 }
 
+img {
+  width: auto;
+  height: auto;
+  aspect-ratio: 1;
+}
+
 #game-container {
   text-align: center;
 }

@@ -17,34 +17,34 @@ const ShogiBoard = () => {
 
   // Mapping of piece types to image paths
   const pieceImages = {
-    p: "../images/pieces/black/pawn.svg",
-    P: "../images/pieces/white/Pawn.svg",
-    "p+": "../images/pieces/black/pawn+.svg",
-    "P+": "../images/pieces/white/Pawn+.svg",
-    l: "../images/pieces/black/lance.svg",
-    L: "../images/pieces/white/Lance.svg",
-    "l+": "../images/pieces/black/lance+.svg",
-    "L+": "../images/pieces/white/Lance+.svg",
-    n: "../images/pieces/black/knight.svg",
-    N: "../images/pieces/white/Knight.svg",
-    "n+": "../images/pieces/black/knight+.svg",
-    "N+": "../images/pieces/white/Knight+.svg",
-    s: "../images/pieces/black/silvergeneral.svg",
-    S: "../images/pieces/white/SilverGeneral.svg",
-    "s+": "../images/pieces/black/silvergeneral+.svg",
-    "S+": "../images/pieces/white/SilverGeneral+.svg",
-    g: "../images/pieces/black/goldgeneral.svg",
-    G: "../images/pieces/white/GoldGeneral.svg",
-    b: "../images/pieces/black/bishop.svg",
-    B: "../images/pieces/white/Bishop.svg",
-    "b+": "../images/pieces/black/bishop+.svg",
-    "B+": "../images/pieces/white/Bishop+.svg",
-    r: "../images/pieces/black/rook.svg",
-    R: "../images/pieces/white/Rook.svg",
-    "r+": "../images/pieces/black/rook+.svg",
-    "R+": "../images/pieces/white/Rook+.svg",
-    k: "../images/pieces/black/king.svg",
-    K: "../images/pieces/white/King.svg",
+    p: "/images/pieces/_pawn.svg",
+    P: "/images/pieces/Pawn.svg",
+    "p+": "/images/pieces/_pawn+.svg",
+    "P+": "/images/pieces/Pawn+.svg",
+    l: "/images/pieces/_lance.svg",
+    L: "/images/pieces/Lance.svg",
+    "l+": "/images/pieces/_lance+.svg",
+    "L+": "/images/pieces/Lance+.svg",
+    n: "/images/pieces/_knight.svg",
+    N: "/images/pieces/Knight.svg",
+    "n+": "/images/pieces/_knight+.svg",
+    "N+": "/images/pieces/Knight+.svg",
+    s: "/images/pieces/_silvergeneral.svg",
+    S: "/images/pieces/SilverGeneral.svg",
+    "s+": "/images/pieces/_silvergeneral+.svg",
+    "S+": "/images/pieces/SilverGeneral+.svg",
+    g: "/images/pieces/_goldgeneral.svg",
+    G: "/images/pieces/GoldGeneral.svg",
+    b: "/images/pieces/_bishop.svg",
+    B: "/images/pieces/Bishop.svg",
+    "b+": "/images/pieces/_bishop+.svg",
+    "B+": "/images/pieces/Bishop+.svg",
+    r: "/images/pieces/_rook.svg",
+    R: "/images/pieces/Rook.svg",
+    "r+": "/images/pieces/_rook+.svg",
+    "R+": "/images/pieces/Rook+.svg",
+    k: "/images/pieces/_king.svg",
+    K: "/images/pieces/King.svg",
   };
 
   
@@ -567,7 +567,7 @@ const ShogiBoard = () => {
       <div className="">
         {capturedWhite.map((piece, index) => (
           <Image
-            className="object-center object-scale-down inline-flex flex-col"
+            className="object-center object-scale-down inline-flex flex-col w-auto h-auto"
             key={index}
             src={pieceImages[piece.toLowerCase()]}
             alt={piece}
@@ -581,7 +581,7 @@ const ShogiBoard = () => {
       <div className="">
         {capturedBlack.map((piece, index) => (
           <Image
-            className="object-center object-scale-down inline-flex flex-col"
+            className="object-center object-scale-down inline-flex flex-col w-auto h-auto"
             key={index}
             src={pieceImages[piece.toUpperCase()]}
             alt={piece}
