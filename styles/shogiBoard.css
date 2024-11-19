@@ -3,7 +3,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
+  min-height: fit-content;
   background-color: #f8f8f8; /* Optional background for the app */
 }
 
@@ -50,15 +50,10 @@
     border: 2px solid red;
   }
   
-  .captured {
-    margin-top: 20px;
-    display: flex;
-    gap: 40px;
-  }
   
   .capturedPieces {
-    display: flex;
-    gap: 5px;
+    display: inline-flex;
+    flex-direction: column-reverse;
   }
   
   

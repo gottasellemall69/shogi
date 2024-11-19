@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 
 const ShogiBoard = () => {
   // Initial board setup for Shogi
@@ -29,9 +29,9 @@ const ShogiBoard = () => {
     N: "/images/pieces/Knight.svg",
     "n+": "/images/pieces/_knight+.svg",
     "N+": "/images/pieces/Knight+.svg",
-    s: "/images/pieces/_silvergeneral.svg",
+    s: "/images/pieces/_silverGeneral.svg",
     S: "/images/pieces/SilverGeneral.svg",
-    "s+": "/images/pieces/_silvergeneral+.svg",
+    "s+": "/images/pieces/_silverGeneral+.svg",
     "S+": "/images/pieces/SilverGeneral+.svg",
     g: "/images/pieces/_goldgeneral.svg",
     G: "/images/pieces/GoldGeneral.svg",
@@ -49,50 +49,42 @@ const ShogiBoard = () => {
 
   
 
-  const pieceMovements = {
+  const pieceMovements = useMemo(() => ({
     p: {
       normal: [{ x: 0, y: 1 }], // Unpromoted Pawn (moves forward one square)
       promoted: [
         { x: 0, y: -1 },
+        { x: 0, y: 1 },
         { x: 1, y: 0 },
         { x: -1, y: 0 },
-        { x: 0, y: 1 },
-        { x: 1, y: -1 },
-        { x: -1, y: -1 },
-      ], // Promoted Pawn (Gold General moves)
+      ], // Promoted Pawn (can move forward, backward, left, and right)
     },
     P: {
       normal: [{ x: 0, y: -1 }], // Unpromoted White Pawn (moves forward one square for white side)
       promoted: [
+        { x: 0, y: -1 },
         { x: 0, y: 1 },
         { x: 1, y: 0 },
         { x: -1, y: 0 },
-        { x: 0, y: -1 },
-        { x: 1, y: 1 },
-        { x: -1, y: 1 },
-      ], // Promoted White Pawn (Gold General moves)
+      ], // Promoted White Pawn (can move forward, backward, left, and right)
     },
     l: {
       normal: Array.from({ length: 8 }, (_, i) => ({ x: 0, y: -(i + 1) })), // Unpromoted Lance (moves any number of squares forward)
       promoted: [
         { x: 0, y: -1 },
+        { x: 0, y: 1 },
         { x: 1, y: 0 },
         { x: -1, y: 0 },
-        { x: 0, y: 1 },
-        { x: 1, y: -1 },
-        { x: -1, y: -1 },
-      ], // Promoted Lance (Gold General moves)
+      ], // Promoted Lance (can move forward, backward, left, and right)
     },
     L: {
       normal: Array.from({ length: 8 }, (_, i) => ({ x: 0, y: i + 1 })), // Unpromoted White Lance
       promoted: [
+        { x: 0, y: -1 },
         { x: 0, y: 1 },
         { x: 1, y: 0 },
         { x: -1, y: 0 },
-        { x: 0, y: -1 },
-        { x: 1, y: 1 },
-        { x: -1, y: 1 },
-      ], // Promoted White Lance (Gold General moves)
+      ], // Promoted White Lance (can move forward, backward, left, and right)
     },
     n: {
       normal: [
@@ -101,12 +93,10 @@ const ShogiBoard = () => {
       ], // Unpromoted Knight (jumps forward)
       promoted: [
         { x: 0, y: -1 },
+        { x: 0, y: 1 },
         { x: 1, y: 0 },
         { x: -1, y: 0 },
-        { x: 0, y: 1 },
-        { x: 1, y: -1 },
-        { x: -1, y: -1 },
-      ], // Promoted Knight (Gold General moves)
+      ], // Promoted Knight (can move forward, backward, left, and right)
     },
     N: {
       normal: [
@@ -114,13 +104,11 @@ const ShogiBoard = () => {
         { x: -1, y: 2 },
       ], // Unpromoted White Knight
       promoted: [
+        { x: 0, y: -1 },
         { x: 0, y: 1 },
         { x: 1, y: 0 },
         { x: -1, y: 0 },
-        { x: 0, y: -1 },
-        { x: 1, y: 1 },
-        { x: -1, y: 1 },
-      ], // Promoted White Knight (Gold General moves)
+      ], // Promoted White Knight (can move forward, backward, left, and right)
     },
     s: {
       normal: [
@@ -132,12 +120,10 @@ const ShogiBoard = () => {
       ], // Unpromoted Silver General
       promoted: [
         { x: 0, y: -1 },
+        { x: 0, y: 1 },
         { x: 1, y: 0 },
         { x: -1, y: 0 },
-        { x: 0, y: 1 },
-        { x: 1, y: -1 },
-        { x: -1, y: -1 },
-      ], // Promoted Silver General (Gold General moves)
+      ], // Promoted Silver General (can move forward, backward, left, and right)
     },
     S: {
       normal: [
@@ -148,13 +134,11 @@ const ShogiBoard = () => {
         { x: -1, y: -1 },
       ], // Unpromoted White Silver General
       promoted: [
+        { x: 0, y: -1 },
         { x: 0, y: 1 },
         { x: 1, y: 0 },
         { x: -1, y: 0 },
-        { x: 0, y: -1 },
-        { x: 1, y: 1 },
-        { x: -1, y: 1 },
-      ], // Promoted White Silver General (Gold General moves)
+      ], // Promoted White Silver General (can move forward, backward, left, and right)
     },
     g: {
       normal: [
@@ -168,10 +152,10 @@ const ShogiBoard = () => {
     },
     G: {
       normal: [
+        { x: 0, y: -1 },
         { x: 0, y: 1 },
         { x: 1, y: 0 },
         { x: -1, y: 0 },
-        { x: 0, y: -1 },
         { x: 1, y: 1 },
         { x: -1, y: 1 },
       ], // White Gold General
@@ -190,14 +174,14 @@ const ShogiBoard = () => {
     },
     K: {
       normal: [
+        { x: 0, y: -1 },
         { x: 0, y: 1 },
-        { x: 1, y: 1 },
-        { x: -1, y: 1 },
         { x: 1, y: 0 },
         { x: -1, y: 0 },
+        { x: 1, y: 1 },
+        { x: -1, y: 1 },
         { x: 1, y: -1 },
         { x: -1, y: -1 },
-        { x: 0, y: -1 },
       ], // White King
     },
     b: {
@@ -208,8 +192,8 @@ const ShogiBoard = () => {
         ...Array.from({ length: 8 }, (_, i) => ({ x: -(i + 1), y: -(i + 1) })),
       ],
       promoted: [
-        { x: 0, y: 1 },
         { x: 0, y: -1 },
+        { x: 0, y: 1 },
         { x: 1, y: 0 },
         { x: -1, y: 0 },
         ...Array.from({ length: 8 }, (_, i) => ({ x: i + 1, y: i + 1 })),
@@ -226,20 +210,20 @@ const ShogiBoard = () => {
         ...Array.from({ length: 8 }, (_, i) => ({ x: 0, y: -(i + 1) })),
       ],
       promoted: [
-        { x: 1, y: 1 },
-        { x: -1, y: 1 },
-        { x: 1, y: -1 },
-        { x: -1, y: -1 },
+        { x: 0, y: -1 },
+        { x: 0, y: 1 },
+        { x: 1, y: 0 },
+        { x: -1, y: 0 },
         ...Array.from({ length: 8 }, (_, i) => ({ x: i + 1, y: 0 })),
         ...Array.from({ length: 8 }, (_, i) => ({ x: -(i + 1), y: 0 })),
         ...Array.from({ length: 8 }, (_, i) => ({ x: 0, y: i + 1 })),
         ...Array.from({ length: 8 }, (_, i) => ({ x: 0, y: -(i + 1) })),
       ], // Promoted Rook gains King's diagonal moves
     },
-  };
+  }), []);
 
 
-  const getPossibleMoves = (piece, x, y, board) => {
+  const getPossibleMoves = useCallback((piece, x, y, board) => {
     const isPromoted = piece.includes("+");
     const basePiece = piece.replace("+", "").toLowerCase();
     const isWhite = piece === piece.toUpperCase();
@@ -355,7 +339,7 @@ const ShogiBoard = () => {
     }
   
     return possibleMoves;
-  };
+  },[pieceMovements]);
   // State management
   const [board, setBoard] = useState(initialBoard);
   const [currentPlayer, setCurrentPlayer] = useState("white");
@@ -363,6 +347,8 @@ const ShogiBoard = () => {
   const [possibleMoves, setPossibleMoves] = useState([]);
   const [capturedWhite, setCapturedWhite] = useState([]);
   const [capturedBlack, setCapturedBlack] = useState([]);
+  const [moveHistory, setMoveHistory] = useState([]);
+  const [undoIndex, setUndoIndex] = useState(0);
 
   const BOARD_SIZE = 9;
 
@@ -381,7 +367,9 @@ const ShogiBoard = () => {
     // Optional promotion in promotion zone
     return isWhite ? x <= 2 : x >= 6;
   };
+
   const [promotedPieces, setPromotedPieces] = useState(new Set());
+
   const handlePromotion = (piece, x, y, updatedBoard) => {
     const promotedPiece = piece + "+";
     updatedBoard[x][y] = promotedPiece;
@@ -410,6 +398,60 @@ const ShogiBoard = () => {
     return moves;
   };
 
+  const selectPiece = (x, y) => {
+    const piece = board[x][y];
+    if (piece && (currentPlayer === "white" ? piece === piece.toUpperCase() : piece === piece.toLowerCase())) {
+      setSelectedPiece({ x, y, piece });
+      const moves = getPossibleMoves(piece, x, y, board);
+      setPossibleMoves(moves);
+    } else {
+      setSelectedPiece(null);
+      setPossibleMoves([]);
+    }
+  };
+
+  const movePiece = (targetX, targetY) => {
+    if (!selectedPiece || !possibleMoves.some(([px, py]) => px === targetX && py === targetY)) return;
+
+    const { x, y, piece } = selectedPiece;
+    const updatedBoard = JSON.parse(JSON.stringify(board)); // Deep copy
+    const capturedPiece = updatedBoard[targetX][targetY];
+
+    // Handle capture
+    if (capturedPiece !== " ") {
+      const normalizedPiece = capturedPiece.replace("+", ""); // Remove promotion status
+      if (currentPlayer === "white") {
+        setCapturedWhite([...capturedWhite, normalizedPiece.toLowerCase()]);
+      } else {
+        setCapturedBlack([...capturedBlack, normalizedPiece.toUpperCase()]);
+      }
+    }
+
+    // Clear original position
+    updatedBoard[x][y] = " ";
+
+    // Check for promotion
+    if (shouldPromote(piece, targetX)) {
+      const promotionChoice = window.confirm("Do you want to promote this piece?");
+      if (promotionChoice && !piece.includes("+")) {
+        updatedBoard[targetX][targetY] = piece + "+";
+      } else {
+        updatedBoard[targetX][targetY] = piece;
+      }
+    } else {
+      updatedBoard[targetX][targetY] = piece;
+    }
+
+    setBoard(updatedBoard);
+    setCurrentPlayer(currentPlayer === "white" ? "black" : "white");
+    setSelectedPiece(null);
+    setPossibleMoves([]);
+
+    // Add the move to the history
+    setMoveHistory([...moveHistory.slice(0, undoIndex), { board: updatedBoard, player: currentPlayer }]);
+    setUndoIndex(moveHistory.length + 1);
+  };
+
   const handlePieceSelect = (x, y) => {
     const piece = board[x][y];
     if (piece && (currentPlayer === "white" ? piece === piece.toUpperCase() : piece === piece.toLowerCase())) {
@@ -423,8 +465,7 @@ const ShogiBoard = () => {
   };
 
   const handleMove = (targetX, targetY) => {
-    if (!selectedPiece || !possibleMoves.some(([px, py]) => px === targetX && py === targetY))
-      return;
+    if (!selectedPiece || !possibleMoves.some(([px, py]) => px === targetX && py === targetY)) return;
   
     const { x, y, piece } = selectedPiece;
     const updatedBoard = JSON.parse(JSON.stringify(board)); // Deep copy
@@ -461,13 +502,14 @@ const ShogiBoard = () => {
     setPossibleMoves([]);
   };
 
-  const handleCapturedPieceSelect = (piece, player) => {
+  const handleCapturedPieceSelect = (piece, player, targetX, targetY) => {
     if (currentPlayer !== player) return;
     setSelectedPiece({ piece, isCaptured: true });
     setPossibleMoves(getDropLocations(piece, board));
+    dropCapturedPiece(targetX, targetY);
   };
 
-  const handleDrop = (targetX, targetY) => {
+  const dropCapturedPiece = (targetX, targetY) => {
     if (!selectedPiece || !selectedPiece.isCaptured || !possibleMoves.some(([px, py]) => px === targetX && py === targetY)) return;
 
     const piece = selectedPiece.piece;
@@ -484,116 +526,218 @@ const ShogiBoard = () => {
     setCurrentPlayer(currentPlayer === "white" ? "black" : "white");
     setSelectedPiece(null);
     setPossibleMoves(pieceMovements);
+
+    // Add the move to the history
+    setMoveHistory([...moveHistory.slice(0, undoIndex), { board: updatedBoard, player: currentPlayer }]);
+    setUndoIndex(moveHistory.length + 1);
+  };
+
+  const handleDrop = (targetX, targetY) => {
+    if (!selectedPiece || !selectedPiece.isCaptured || !possibleMoves.some(([px, py]) => px === targetX && py === targetY)) return;
+  
+    const piece = selectedPiece.piece;
+    const updatedBoard = [...board];
+    updatedBoard[targetX][targetY] = currentPlayer === "white" ? piece.toUpperCase() : piece.toLowerCase();
+  
+    if (currentPlayer === "white") {
+      setCapturedWhite(capturedWhite.filter((p) => p !== piece));
+    } else {
+      setCapturedBlack(capturedBlack.filter((p) => p !== piece));
+    }
+  
+    setBoard(updatedBoard);
+    setCurrentPlayer(currentPlayer === "white" ? "black" : "white");
+    setSelectedPiece(null);
+    setPossibleMoves(pieceMovements);
   };
 
   const handleSquareClick = (x, y) => {
-  const piece = board[x][y];
-  const isWhitePiece = piece === piece.toUpperCase();
-  const isBlackPiece = piece !== " " && piece === piece.toLowerCase();
+    const piece = board[x][y];
+    const isWhitePiece = piece === piece.toUpperCase();
+    const isBlackPiece = piece !== " " && piece === piece.toLowerCase();
 
-  // If no piece is selected and clicked square has a piece of current player's color
-  if (!selectedPiece && piece !== " " && 
-      ((currentPlayer === "white" && isWhitePiece) || 
-       (currentPlayer === "black" && isBlackPiece))) {
-    
-    const moves = getPossibleMoves(piece, x, y, board);
-    
-    // Even if there are no valid moves, we should still set the selected piece
-    setSelectedPiece({ x, y, piece });
-    setPossibleMoves(moves);
-    return;
-  }
+    if (!selectedPiece && piece !== " " && ((currentPlayer === "white" && isWhitePiece) || (currentPlayer === "black" && isBlackPiece))) {
+      selectPiece(x, y);
+    } else if (selectedPiece) {
+      if (selectedPiece.x === x && selectedPiece.y === y) {
+        setSelectedPiece(null);
+        setPossibleMoves([]);
+      } else if (piece !== " " && ((currentPlayer === "white" && isWhitePiece) || (currentPlayer === "black" && isBlackPiece))) {
+        selectPiece(x, y);
+      } else if (possibleMoves.some(([px, py]) => px === x && py === y)) {
+        movePiece(x, y);
+      } else {
+        setSelectedPiece(null);
+        setPossibleMoves([]);
+      }
+    }
+  };
 
-  // If a piece is already selected
-  if (selectedPiece) {
-    // If clicking on the same piece, deselect it
-    if (selectedPiece.x === x && selectedPiece.y === y) {
+const findKingPosition = useCallback((kingPiece) => {
+    for (let x = 0; x < 9; x++) {
+      for (let y = 0; y < 9; y++) {
+        if (board[x][y] === kingPiece) {
+          return [x, y];
+        }
+      }
+    }
+    return null;
+  },[board]);
+
+  const isInCheck = useCallback((player) => {
+    const kingPosition = player === "white" ? findKingPosition("K") : findKingPosition("k");
+    if (!kingPosition) return false;
+
+    const [kingX, kingY] = kingPosition;
+    for (let i = 0; i < 9; i++) {
+      for (let j = 0; j < 9; j++) {
+        if (board[i][j] !== " " && (player === "white" ? board[i][j] === board[i][j].toLowerCase() : board[i][j] === board[i][j].toUpperCase())) {
+          const moves = getPossibleMoves(board[i][j], i, j, board);
+          if (moves.some(([px, py]) => px === kingX && py === kingY)) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  },[board, findKingPosition, getPossibleMoves]);
+
+  const isCheckmate = useCallback((player) => {
+    if (!isInCheck(player)) return false;
+
+    for (let x = 0; x < 9; x++) {
+      for (let y = 0; y < 9; y++) {
+        if (board[x][y] !== " " && (player === "white" ? board[x][y] === board[x][y].toUpperCase() : board[x][y] === board[x][y].toLowerCase())) {
+          const moves = getPossibleMoves(board[x][y], x, y, board);
+          if (moves.length > 0) {
+            return false;
+          }
+        }
+      }
+    }
+
+    return true;
+  },[board, getPossibleMoves, isInCheck]);
+
+  const isStaleMate =useCallback( (player) => {
+    if (isInCheck(player)) return false;
+
+    for (let x = 0; x < 9; x++) {
+      for (let y = 0; y < 9; y++) {
+        if (board[x][y] !== " " && (player === "white" ? board[x][y] === board[x][y].toUpperCase() : board[x][y] === board[x][y].toLowerCase())) {
+          const moves = getPossibleMoves(board[x][y], x, y, board);
+          if (moves.length > 0) {
+            return false;
+          }
+        }
+      }
+    }
+
+    return true;
+  },[board, getPossibleMoves, isInCheck]);
+
+  const handleUndo = () => {
+    if (undoIndex > 0) {
+      setUndoIndex(undoIndex - 1);
+      const { board, player } = moveHistory[undoIndex - 1];
+      setBoard(board);
+      setCurrentPlayer(player);
       setSelectedPiece(null);
       setPossibleMoves([]);
-      return;
     }
+  };
 
-    // If clicking on another piece of the same color, select the new piece
-    if (piece !== " " && 
-        ((currentPlayer === "white" && isWhitePiece) || 
-         (currentPlayer === "black" && isBlackPiece))) {
-      const moves = getPossibleMoves(piece, x, y, board);
-      setSelectedPiece({ x, y, piece });
-      setPossibleMoves(moves);
-      return;
-    }
-
-    // Try to move the selected piece
-    if (possibleMoves.some(([px, py]) => px === x && py === y)) {
-      handleMove(x, y);
-    } else {
-      // If clicking on an invalid square, deselect the piece
+  const handleRedo = () => {
+    if (undoIndex < moveHistory.length) {
+      setUndoIndex(undoIndex + 1);
+      const { board, player } = moveHistory[undoIndex];
+      setBoard(board);
+      setCurrentPlayer(player);
       setSelectedPiece(null);
       setPossibleMoves([]);
     }
-  }
-};
+  };
 
+  useEffect(() => {
+    if (isCheckmate(currentPlayer)) {
+      alert(`Checkmate! ${currentPlayer === "white" ? "Black" : "White"} wins.`);
+      // Reset the game or do any other desired actions
+    } else if (isStaleMate(currentPlayer)) {
+      alert("Stalemate! The game is a draw.");
+      // Reset the game or do any other desired actions
+    }
+  }, [currentPlayer, isCheckmate, isStaleMate]);
 
   return (
     <div className="container flex flex-col items-center">
-    <h1 className="mb-24 text-4xl font-black text-black">
-      Current Player: {currentPlayer}
-    </h1>
-    <div className="shogi-board">
-      {board.map((row, x) =>
-        row.map((piece, y) => (
-          <div
-            key={`${y}-${x}`}
-            className={`cell ${Array.isArray(possibleMoves) && possibleMoves.some(([px, py]) => px === x && py === y) ? "highlight" : ""}`}
-            onClick={() =>  selectedPiece ? handleSquareClick(x, y) : handlePieceSelect(x, y)}
-          >
-            {piece !== " " && (
-              <Image
-                className="object-center object-scale-down"
-                src={pieceImages[piece]}
-                alt={piece}
-                width={45}
-                height={45}
-              />
-            )}
-          </div>
-        ))
-      )}
-    </div>
-    <div className="captured m-5">
-      <h3>Captured by White</h3>
-      
+      <h1 className="mb-24 text-4xl font-black text-black">
+        Current Player: {currentPlayer}
+        {isInCheck(currentPlayer) && ` (in check)`}
+      </h1>
       <div className="">
-        {capturedWhite.map((piece, index) => (
-          <Image
-            className="object-center object-scale-down inline-flex flex-col w-auto h-auto"
-            key={index}
-            src={pieceImages[piece.toLowerCase()]}
-            alt={piece}
-            width={30}
-            height={30}
-          />
-        ))}
+      <div className="board shogi-board">
+        {board.map((row, x) =>
+          row.map((piece, y) => (
+            <div
+              key={`${x}-${y}`}
+              className={`cell ${Array.isArray(possibleMoves) && possibleMoves.some(([px, py]) => px === x && py === y) ? "highlight" : ""}`}
+              onClick={() => handleSquareClick(x, y)}
+            >
+              {piece !== " " && (
+                <Image
+                  className="object-center object-scale-down"
+                  src={pieceImages[piece]}
+                  alt={piece}
+                  width={45}
+                  height={45}
+                />
+              )}
+            </div>
+          ))
+        )}
       </div>
-      <h3>Captured by Black</h3>
+      </div>
+      <div className="controls m-5 w-full mt-24 max-w-72 mx-auto space-x-0 sm:space-x-10 sm:space-y-0">
+        <button className="float-start bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded" onClick={handleUndo}>Undo</button>
+        <button className="float-end bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded" onClick={handleRedo}>Redo</button>
+      </div>
+      <div className="captured m-5 w-full">
+        
+        <div className="float-start inline-flex flex-row flex-wrap w-1/2"><h3>Captured by White</h3>
+          {capturedWhite.map((piece, index) => (
+            <Image
+              className="object-center object-scale-down  w-auto h-auto"
+              key={index}
+              src={pieceImages[piece.toLowerCase()]}
+              alt={piece}
+              width={30}
+              height={30}
+              onClick={(e) => handleCapturedPieceSelect(piece, "white", e.currentTarget.dataset.x, e.currentTarget.dataset.y)}
+              data-x={Math.floor(Math.random() * 9)}
+              data-y={Math.floor(Math.random() * 9)}
+            />
+          ))}
+        </div>
+        
+        <div className="float-end inline-flex flex-row-reverse flex-wrap w-1/2"><h3>Captured by Black</h3>
+          {capturedBlack.map((piece, index) => (
+            <Image
+              className="object-center object-scale-down  w-auto h-auto"
+              key={index}
+              src={pieceImages[piece.toUpperCase()]}
+              alt={piece}
+              width={30}
+              height={30}
+              onClick={(e) => handleCapturedPieceSelect(piece, "black", e.currentTarget.dataset.x, e.currentTarget.dataset.y)}
+              data-x={Math.floor(Math.random() * 9)}
+              data-y={Math.floor(Math.random() * 9)}
+            />
+          ))}
+        </div>
+      </div>
       
-      <div className="">
-        {capturedBlack.map((piece, index) => (
-          <Image
-            className="object-center object-scale-down inline-flex flex-col w-auto h-auto"
-            key={index}
-            src={pieceImages[piece.toUpperCase()]}
-            alt={piece}
-            width={30}
-            height={30}
-          />
-        ))}
-      </div>
     </div>
-  </div>
   );
-
 };
 
 export default ShogiBoard;
