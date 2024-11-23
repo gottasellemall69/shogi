@@ -458,7 +458,7 @@ const ShogiBoard = () => {
       if (findKingPosition("K")) {
         alert("White wins!");
       } else {
-        alert("Black wins!");
+        alert("Game Over!");
       }
       // Reset the game or do any other desired actions
     }
@@ -479,6 +479,7 @@ const ShogiBoard = () => {
     if (currentPlayer !== player) return;
     setSelectedPiece({ piece, isCaptured: true, x: targetX, y: targetY });
     setPossibleMoves(getDropLocations(piece, board));
+    dropCapturedPiece(targetX, targetY)
   };
 
   const dropCapturedPiece = (targetX, targetY) => {
