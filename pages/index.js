@@ -226,31 +226,31 @@ const ShogiBoard = () => {
     const isPromoted = piece.includes("+");
     const basePiece = piece.replace("+", "").toLowerCase();
     const isWhite = piece === piece.toUpperCase();
-    
+  
     if (!pieceMovements[basePiece]) return [];
   
-    const moveSet = isPromoted ? 
+    const moveSet = isPromoted ?
       pieceMovements[basePiece].promoted || pieceMovements[basePiece].normal :
       pieceMovements[basePiece].normal;
   
-    let possibleMoves = [moveSet];
-    
+    let possibleMoves = [];
+  
     // Helper function to check if a position is within board bounds
     const isInBounds = (x, y) => x >= 0 && x < 9 && y >= 0 && y < 9;
-    
+  
     // Helper function to check if a piece can capture at position
     const canCapture = (x, y) => {
       const targetPiece = board[x][y];
-      return targetPiece === " " || 
-             (isWhite ? targetPiece === targetPiece.toLowerCase() : 
-                        targetPiece === targetPiece.toUpperCase());
+      return targetPiece === " " ||
+        (isWhite ? targetPiece === targetPiece.toLowerCase() :
+          targetPiece === targetPiece.toUpperCase());
     };
   
     // Handle sliding pieces (rook, bishop, lance)
     const handleSlidingMove = (startX, startY, dx, dy) => {
       let newX = startX + dx;
       let newY = startY + dy;
-      
+  
       while (isInBounds(newX, newY)) {
         if (board[newX][newY] === " ") {
           possibleMoves.push([newX, newY]);
@@ -270,7 +270,7 @@ const ShogiBoard = () => {
       case 'r': // Rook
         const rookDirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
         rookDirs.forEach(([dx, dy]) => handleSlidingMove(x, y, dx, dy));
-        
+  
         // Add king-like moves for promoted rook
         if (isPromoted) {
           [[-1, -1], [-1, 1], [1, -1], [1, 1]].forEach(([dx, dy]) => {
@@ -286,7 +286,7 @@ const ShogiBoard = () => {
       case 'b': // Bishop
         const bishopDirs = [[1, 1], [1, -1], [-1, 1], [-1, -1]];
         bishopDirs.forEach(([dx, dy]) => handleSlidingMove(x, y, dx, dy));
-        
+  
         // Add king-like moves for promoted bishop
         if (isPromoted) {
           [[0, 1], [0, -1], [1, 0], [-1, 0]].forEach(([dx, dy]) => {
@@ -305,10 +305,10 @@ const ShogiBoard = () => {
         break;
   
       case 'n': // Knight
-        const knightMoves = isWhite ? 
+        const knightMoves = isWhite ?
           [[-2, -1], [-2, 1]] : // White knight
           [[2, -1], [2, 1]];    // Black knight
-        
+  
         knightMoves.forEach(([dx, dy]) => {
           const newX = x + dx;
           const newY = y + dy;
@@ -338,7 +338,8 @@ const ShogiBoard = () => {
     }
   
     return possibleMoves;
-  },[pieceMovements]);
+  }, [pieceMovements]);
+  
   // State management
   const [board, setBoard] = useState(initialBoard);
   const [currentPlayer, setCurrentPlayer] = useState("white");
@@ -424,6 +425,7 @@ const ShogiBoard = () => {
       } else {
         setCapturedBlack([...capturedBlack, normalizedPiece.toUpperCase()]);
       }
+      updatedBoard[targetX][targetY] = " "; // Clear the captured piece's position
     }
   
     // Clear original position
@@ -449,56 +451,28 @@ const ShogiBoard = () => {
     // Add the move to the history
     setMoveHistory([...moveHistory.slice(0, undoIndex), { board: updatedBoard, player: currentPlayer }]);
     setUndoIndex(moveHistory.length + 1);
+  
+    // Check for victory condition
+    if (isVictory()) {
+      // Game is over, determine the winner and display the result
+      if (findKingPosition("K")) {
+        alert("White wins!");
+      } else {
+        alert("Black wins!");
+      }
+      // Reset the game or do any other desired actions
+    }
   };
 
-  const handlePieceSelect = (x, y) => {
-    const piece = board[x][y];
-    if (piece && (currentPlayer === "white" ? piece === piece.toUpperCase() : piece === piece.toLowerCase())) {
-      setSelectedPiece({ x, y, piece });
-      const moves = getPossibleMoves(piece, x, y, board);
-      setPossibleMoves(moves);
-    } else {
-      setSelectedPiece(null);
-      setPossibleMoves(pieceMovements);
-    }
-  };
-
-  const handleMove = (targetX, targetY) => {
-    if (!selectedPiece || !possibleMoves.some(([px, py]) => px === targetX && py === targetY)) return;
+  const isVictory = () => {
+    const whiteKingPosition = findKingPosition("K");
+    const blackKingPosition = findKingPosition("k");
   
-    const { x, y, piece } = selectedPiece;
-    const updatedBoard = JSON.parse(JSON.stringify(board)); // Deep copy
-    const capturedPiece = updatedBoard[targetX][targetY];
-  
-    // Handle capture
-    if (capturedPiece !== " ") {
-      const normalizedPiece = capturedPiece.replace("+", ""); // Remove promotion status
-      if (currentPlayer === "white") {
-        setCapturedWhite([...capturedWhite, normalizedPiece.toLowerCase()]);
-      } else {
-        setCapturedBlack([...capturedBlack, normalizedPiece.toUpperCase()]);
-      }
+    if (!whiteKingPosition || !blackKingPosition) {
+      return true; // If either king is missing, the game is over
     }
   
-    // Clear original position
-    updatedBoard[x][y] = " ";
-  
-    // Check for promotion
-    if (shouldPromote(piece, targetX)) {
-      const promotionChoice = window.confirm("Do you want to promote this piece?");
-      if (promotionChoice && !piece.includes("+")) {
-        updatedBoard[targetX][targetY] = piece + "+";
-      } else {
-        updatedBoard[targetX][targetY] = piece;
-      }
-    } else {
-      updatedBoard[targetX][targetY] = piece;
-    }
-  
-    setBoard(updatedBoard);
-    setCurrentPlayer(currentPlayer === "white" ? "black" : "white");
-    setSelectedPiece(null);
-    setPossibleMoves([]);
+    return false; // No victory condition met yet
   };
   
   const handleCapturedPieceSelect = (piece, player, targetX, targetY) => {
@@ -530,35 +504,22 @@ const ShogiBoard = () => {
     setUndoIndex(moveHistory.length + 1);
   };
 
-  const handleDrop = (targetX, targetY) => {
-    if (!selectedPiece || !selectedPiece.isCaptured || !possibleMoves.some(([px, py]) => px === targetX && py === targetY)) return;
-    const piece = selectedPiece.piece;
-    const updatedBoard = [...board];
-    updatedBoard[targetX][targetY] = currentPlayer === "white" ? piece.toUpperCase() : piece.toLowerCase();
-  
-    if (currentPlayer === "white") {
-      setCapturedWhite(capturedWhite.filter((p) => p !== piece));
-    } else {
-      setCapturedBlack(capturedBlack.filter((p) => p !== piece));
-    }
-  
-    setBoard(updatedBoard);
-    setCurrentPlayer(currentPlayer === "white" ? "black" : "white");
-    setSelectedPiece(null);
-    setPossibleMoves(pieceMovements);
-  
-    // Add the move to the history
-    setMoveHistory([...moveHistory.slice(0, undoIndex), { board: updatedBoard, player: currentPlayer }]);
-    setUndoIndex(moveHistory.length + 1);
-  };
-
   const handleSquareClick = (x, y) => {
     const piece = board[x][y];
     const isWhitePiece = piece === piece.toUpperCase();
     const isBlackPiece = piece !== " " && piece === piece.toLowerCase();
   
     if (!selectedPiece && piece !== " " && ((currentPlayer === "white" && isWhitePiece) || (currentPlayer === "black" && isBlackPiece))) {
-      selectPiece(x, y);
+      if (isInCheck(currentPlayer)) {
+        // Player's king is in check, only allow them to move the king
+        if (piece.toLowerCase() === 'k') {
+          selectPiece(x, y);
+        } else {
+          return;
+        }
+      } else {
+        selectPiece(x, y);
+      }
     } else if (selectedPiece) {
       if (selectedPiece.x === x && selectedPiece.y === y) {
         setSelectedPiece(null);
@@ -566,7 +527,13 @@ const ShogiBoard = () => {
       } else if (piece !== " " && ((currentPlayer === "white" && isWhitePiece) || (currentPlayer === "black" && isBlackPiece))) {
         selectPiece(x, y);
       } else if (possibleMoves.some(([px, py]) => px === x && py === y)) {
+        const capturedPiece = board[x][y];
         movePiece(x, y);
+        if (capturedPiece === (currentPlayer === "white" ? "k" : "K")) {
+          // King has been captured, end the game
+          alert(`${currentPlayer === "black" ? "White" : "Black"} wins!`);
+          // Reset the game or do any other desired actions
+        }
       } else if (selectedPiece.isCaptured) {
         handleDrop(x, y);
       } else {
@@ -574,6 +541,32 @@ const ShogiBoard = () => {
         setPossibleMoves([]);
       }
     }
+  };
+  
+  const handleDrop = (targetX, targetY) => {
+    if (!selectedPiece || !selectedPiece.isCaptured || !possibleMoves.some(([px, py]) => px === targetX && py === targetY)) return;
+  
+    const { piece, isCaptured } = selectedPiece;
+    const updatedBoard = [...board];
+    updatedBoard[targetX][targetY] = currentPlayer === "white" ? piece.toUpperCase() : piece.toLowerCase();
+  
+    // Update the captured pieces arrays
+    if (isCaptured) {
+      if (currentPlayer === "white") {
+        setCapturedWhite(capturedWhite.filter((p) => p !== piece.toLowerCase()));
+      } else {
+        setCapturedBlack(capturedBlack.filter((p) => p !== piece.toUpperCase()));
+      }
+    }
+  
+    setBoard(updatedBoard);
+    setCurrentPlayer(currentPlayer === "white" ? "black" : "white");
+    setSelectedPiece(null);
+    setPossibleMoves([]);
+  
+    // Add the move to the history
+    setMoveHistory([...moveHistory.slice(0, undoIndex), { board: updatedBoard, player: currentPlayer }]);
+    setUndoIndex(moveHistory.length + 1);
   };
 
 const findKingPosition = useCallback((kingPiece) => {
@@ -665,6 +658,7 @@ const findKingPosition = useCallback((kingPiece) => {
     if (isCheckmate(currentPlayer)) {
       alert(`Checkmate! ${currentPlayer === "white" ? "Black" : "White"} wins.`);
       // Reset the game or do any other desired actions
+      
     } else if (isStaleMate(currentPlayer)) {
       alert("Stalemate! The game is a draw.");
       // Reset the game or do any other desired actions
@@ -679,7 +673,7 @@ const findKingPosition = useCallback((kingPiece) => {
   </h1>
   <div
     className={`board shogi-board ${
-      currentPlayer === "black" ? "rotate-180" : ""
+      currentPlayer === "black" ? "rotate-0" : ""
     }`}
   >
     {board.map((row, x) =>
@@ -697,7 +691,7 @@ const findKingPosition = useCallback((kingPiece) => {
           {piece !== " " && (
             <Image
               className={`object-center object-scale-down ${
-                piece === piece.toLowerCase() ? "rotate-180" : ""
+                piece === piece.toLowerCase() ? "rotate-0" : ""
               }`}
               src={pieceImages[piece]}
               alt={piece}
@@ -729,7 +723,7 @@ const findKingPosition = useCallback((kingPiece) => {
         onClick={(e) =>
           handleCapturedPieceSelect(
             piece,
-            "white",
+            "black",
             parseInt(e.currentTarget.dataset.x),
             parseInt(e.currentTarget.dataset.y)
           )
@@ -752,7 +746,7 @@ const findKingPosition = useCallback((kingPiece) => {
         onClick={(e) =>
           handleCapturedPieceSelect(
             piece,
-            "black",
+            "white",
             parseInt(e.currentTarget.dataset.x),
             parseInt(e.currentTarget.dataset.y)
           )
