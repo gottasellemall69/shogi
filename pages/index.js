@@ -47,210 +47,213 @@ const ShogiBoard = () => {
     K: "/images/pieces/King.svg",
   };
 
-  
 
-  const pieceMovements = useMemo(() => ({
-    p: {
-      normal: [{ x: 0, y: 1 }], // Unpromoted Pawn (moves forward one square)
-      promoted: [
-        { x: 0, y: 1 },
-        { x: 0, y: -1 },
-        { x: 1, y: 0 },
-        { x: -1, y: 0 },
-      ], // Promoted Pawn (can move forward, backward, left, and right)
-    },
-    P: {
-      normal: [{ x: 0, y: -1 }], // Unpromoted White Pawn (moves forward one square for white side)
-      promoted: [
-        { x: 0, y: 1 },
-        { x: 0, y: -1 },
-        { x: 1, y: 0 },
-        { x: -1, y: 0 },
-      ], // Promoted White Pawn (can move forward, backward, left, and right)
-    },
-    l: {
-      normal: Array.from({ length: 8 }, (_, i) => ({ x: 0, y: -(i + 1) })), // Unpromoted Lance (moves any number of squares forward)
-      promoted: [
-        { x: 0, y: -1 },
-        { x: 0, y: 1 },
-        { x: 1, y: 0 },
-        { x: -1, y: 0 },
-      ], // Promoted Lance (can move forward, backward, left, and right)
-    },
-    L: {
-      normal: Array.from({ length: 8 }, (_, i) => ({ x: 0, y: i + 1 })), // Unpromoted White Lance
-      promoted: [
-        { x: 0, y: -1 },
-        { x: 0, y: 1 },
-        { x: 1, y: 0 },
-        { x: -1, y: 0 },
-      ], // Promoted White Lance (can move forward, backward, left, and right)
-    },
-    n: {
-      normal: [
-        { x: 1, y: -2 },
-        { x: -1, y: -2 },
-      ], // Unpromoted Knight (jumps forward)
-      promoted: [
-        { x: 0, y: -1 },
-        { x: 0, y: 1 },
-        { x: 1, y: 0 },
-        { x: -1, y: 0 },
-      ], // Promoted Knight (can move forward, backward, left, and right)
-    },
-    N: {
-      normal: [
-        { x: 1, y: 2 },
-        { x: -1, y: 2 },
-      ], // Unpromoted White Knight
-      promoted: [
-        { x: 0, y: -1 },
-        { x: 0, y: 1 },
-        { x: 1, y: 0 },
-        { x: -1, y: 0 },
-      ], // Promoted White Knight (can move forward, backward, left, and right)
-    },
-    s: {
-      normal: [
-        { x: 1, y: -1 },
-        { x: -1, y: -1 },
-        { x: 0, y: -1 },
-        { x: 1, y: 1 },
-        { x: -1, y: 1 },
-      ], // Unpromoted Silver General
-      promoted: [
-        { x: 0, y: -1 },
-        { x: 0, y: 1 },
-        { x: 1, y: 0 },
-        { x: -1, y: 0 },
-      ], // Promoted Silver General (can move forward, backward, left, and right)
-    },
-    S: {
-      normal: [
-        { x: 1, y: 1 },
-        { x: -1, y: 1 },
-        { x: 0, y: 1 },
-        { x: 1, y: -1 },
-        { x: -1, y: -1 },
-      ], // Unpromoted White Silver General
-      promoted: [
-        { x: 0, y: -1 },
-        { x: 0, y: 1 },
-        { x: 1, y: 0 },
-        { x: -1, y: 0 },
-      ], // Promoted White Silver General (can move forward, backward, left, and right)
-    },
-    g: {
-      normal: [
-        { x: 0, y: -1 },
-        { x: 1, y: 0 },
-        { x: -1, y: 0 },
-        { x: 0, y: 1 },
-        { x: 1, y: -1 },
-        { x: -1, y: -1 },
-      ], // Gold General
-    },
-    G: {
-      normal: [
-        { x: 0, y: -1 },
-        { x: 0, y: 1 },
-        { x: 1, y: 0 },
-        { x: -1, y: 0 },
-        { x: 1, y: 1 },
-        { x: -1, y: 1 },
-      ], // White Gold General
-    },
-    b: {
-      normal: [
-        ...Array.from({ length: 8 }, (_, i) => ({ x: i + 1, y: i + 1 })), // Diagonal moves in 4 directions
-        ...Array.from({ length: 8 }, (_, i) => ({ x: -(i + 1), y: i + 1 })),
-        ...Array.from({ length: 8 }, (_, i) => ({ x: i + 1, y: -(i + 1) })),
-        ...Array.from({ length: 8 }, (_, i) => ({ x: -(i + 1), y: -(i + 1) })),
-      ],
-      promoted: [
-        { x: 0, y: -1 },
-        { x: 0, y: 1 },
-        { x: 1, y: 0 },
-        { x: -1, y: 0 },
-        ...Array.from({ length: 8 }, (_, i) => ({ x: i + 1, y: i + 1 })),
-        ...Array.from({ length: 8 }, (_, i) => ({ x: -(i + 1), y: i + 1 })),
-        ...Array.from({ length: 8 }, (_, i) => ({ x: i + 1, y: -(i + 1) })),
-        ...Array.from({ length: 8 }, (_, i) => ({ x: -(i + 1), y: -(i + 1) })),
-      ], // Promoted Bishop gains King's orthogonal moves
-    },
-    r: {
-      normal: [
-        ...Array.from({ length: 8 }, (_, i) => ({ x: i + 1, y: 0 })), // Rook moves in 4 straight directions
-        ...Array.from({ length: 8 }, (_, i) => ({ x: -(i + 1), y: 0 })),
-        ...Array.from({ length: 8 }, (_, i) => ({ x: 0, y: i + 1 })),
-        ...Array.from({ length: 8 }, (_, i) => ({ x: 0, y: -(i + 1) })),
-      ],
-      promoted: [
-        { x: 0, y: -1 },
-        { x: 0, y: 1 },
-        { x: 1, y: 0 },
-        { x: -1, y: 0 },
-        ...Array.from({ length: 8 }, (_, i) => ({ x: i + 1, y: 0 })),
-        ...Array.from({ length: 8 }, (_, i) => ({ x: -(i + 1), y: 0 })),
-        ...Array.from({ length: 8 }, (_, i) => ({ x: 0, y: i + 1 })),
-        ...Array.from({ length: 8 }, (_, i) => ({ x: 0, y: -(i + 1) })),
-      ], // Promoted Rook gains King's diagonal moves
-    },
-    k: {
-      normal: [
-        { x: 0, y: -1 },
-        { x: 1, y: -1 },
-        { x: -1, y: -1 },
-        { x: 1, y: 0 },
-        { x: -1, y: 0 },
-        { x: 1, y: 1 },
-        { x: -1, y: 1 },
-        { x: 0, y: 1 },
-      ], // King moves one square in any direction
-    },
-    K: {
-      normal: [
-        { x: 0, y: -1 },
-        { x: 0, y: 1 },
-        { x: 1, y: 0 },
-        { x: -1, y: 0 },
-        { x: 1, y: 1 },
-        { x: -1, y: 1 },
-        { x: 1, y: -1 },
-        { x: -1, y: -1 },
-      ], // White King
-    },
-  }), []);
+
+
 
   const getPossibleMoves = useCallback((piece, x, y, board) => {
+    const pieceMovements = {
+      p: {
+        normal: [{ x: 0, y: 1 }], // Black Pawn moves forward
+        promoted: [
+            { x: 0, y: 1 }, // Forward
+            { x: 0, y: -1 }, // Backward
+            { x: 1, y: 0 }, // Right
+            { x: -1, y: 0 }, // Left
+            { x: 1, y: 1 }, // Diagonal forward-right
+            { x: -1, y: 1 }, // Diagonal forward-left
+        ],
+    },
+    P: {
+        normal: [{ x: 0, y: -1 }], // White Pawn moves forward
+        promoted: [
+            { x: 0, y: 1 }, // Backward
+            { x: 0, y: -1 }, // Forward
+            { x: 1, y: 0 }, // Right
+            { x: -1, y: 0 }, // Left
+            { x: 1, y: -1 }, // Diagonal forward-right
+            { x: -1, y: -1 }, // Diagonal forward-left
+        ],
+    },
+      l: {
+        normal: Array.from({ length: 8 }, (_, i) => ({ x: 0, y: -(i + 1) })), // Unpromoted Lance (moves any number of squares forward)
+        promoted: [
+          { x: 0, y: -1 },
+          { x: 0, y: 1 },
+          { x: 1, y: 0 },
+          { x: -1, y: 0 },
+        ], // Promoted Lance (can move forward, backward, left, and right)
+      },
+      L: {
+        normal: Array.from({ length: 8 }, (_, i) => ({ x: 0, y: i + 1 })), // Unpromoted White Lance
+        promoted: [
+          { x: 0, y: -1 },
+          { x: 0, y: 1 },
+          { x: 1, y: 0 },
+          { x: -1, y: 0 },
+        ], // Promoted White Lance (can move forward, backward, left, and right)
+      },
+      n: {
+        normal: [
+          { x: 1, y: -2 },
+          { x: -1, y: -2 },
+        ], // Unpromoted Knight (jumps forward)
+        promoted: [
+          { x: 0, y: -1 },
+          { x: 0, y: 1 },
+          { x: 1, y: 0 },
+          { x: -1, y: 0 },
+        ], // Promoted Knight (can move forward, backward, left, and right)
+      },
+      N: {
+        normal: [
+          { x: 1, y: 2 },
+          { x: -1, y: 2 },
+        ], // Unpromoted White Knight
+        promoted: [
+          { x: 0, y: -1 },
+          { x: 0, y: 1 },
+          { x: 1, y: 0 },
+          { x: -1, y: 0 },
+        ], // Promoted White Knight (can move forward, backward, left, and right)
+      },
+      s: {
+        normal: [
+          { x: 1, y: -1 },
+          { x: -1, y: -1 },
+          { x: 0, y: -1 },
+          { x: 1, y: 1 },
+          { x: -1, y: 1 },
+        ], // Unpromoted Silver General
+        promoted: [
+          { x: 0, y: -1 },
+          { x: 0, y: 1 },
+          { x: 1, y: 0 },
+          { x: -1, y: 0 },
+        ], // Promoted Silver General (can move forward, backward, left, and right)
+      },
+      S: {
+        normal: [
+          { x: 1, y: 1 },
+          { x: -1, y: 1 },
+          { x: 0, y: 1 },
+          { x: 1, y: -1 },
+          { x: -1, y: -1 },
+        ], // Unpromoted White Silver General
+        promoted: [
+          { x: 0, y: -1 },
+          { x: 0, y: 1 },
+          { x: 1, y: 0 },
+          { x: -1, y: 0 },
+        ], // Promoted White Silver General (can move forward, backward, left, and right)
+      },
+      g: {
+        normal: [
+          { x: 0, y: -1 },
+          { x: 1, y: 0 },
+          { x: -1, y: 0 },
+          { x: 0, y: 1 },
+          { x: 1, y: -1 },
+          { x: -1, y: -1 },
+        ], // Gold General
+      },
+      G: {
+        normal: [
+          { x: 0, y: -1 },
+          { x: 0, y: 1 },
+          { x: 1, y: 0 },
+          { x: -1, y: 0 },
+          { x: 1, y: 1 },
+          { x: -1, y: 1 },
+        ], // White Gold General
+      },
+      b: {
+        normal: [
+          ...Array.from({ length: 8 }, (_, i) => ({ x: i + 1, y: i + 1 })), // Diagonal moves in 4 directions
+          ...Array.from({ length: 8 }, (_, i) => ({ x: -(i + 1), y: i + 1 })),
+          ...Array.from({ length: 8 }, (_, i) => ({ x: i + 1, y: -(i + 1) })),
+          ...Array.from({ length: 8 }, (_, i) => ({ x: -(i + 1), y: -(i + 1) })),
+        ],
+        promoted: [
+          { x: 0, y: -1 },
+          { x: 0, y: 1 },
+          { x: 1, y: 0 },
+          { x: -1, y: 0 },
+          ...Array.from({ length: 8 }, (_, i) => ({ x: i + 1, y: i + 1 })),
+          ...Array.from({ length: 8 }, (_, i) => ({ x: -(i + 1), y: i + 1 })),
+          ...Array.from({ length: 8 }, (_, i) => ({ x: i + 1, y: -(i + 1) })),
+          ...Array.from({ length: 8 }, (_, i) => ({ x: -(i + 1), y: -(i + 1) })),
+        ], // Promoted Bishop gains King's orthogonal moves
+      },
+      r: {
+        normal: [
+          ...Array.from({ length: 8 }, (_, i) => ({ x: i + 1, y: 0 })), // Rook moves in 4 straight directions
+          ...Array.from({ length: 8 }, (_, i) => ({ x: -(i + 1), y: 0 })),
+          ...Array.from({ length: 8 }, (_, i) => ({ x: 0, y: i + 1 })),
+          ...Array.from({ length: 8 }, (_, i) => ({ x: 0, y: -(i + 1) })),
+        ],
+        promoted: [
+          { x: 0, y: -1 },
+          { x: 0, y: 1 },
+          { x: 1, y: 0 },
+          { x: -1, y: 0 },
+          ...Array.from({ length: 8 }, (_, i) => ({ x: i + 1, y: 0 })),
+          ...Array.from({ length: 8 }, (_, i) => ({ x: -(i + 1), y: 0 })),
+          ...Array.from({ length: 8 }, (_, i) => ({ x: 0, y: i + 1 })),
+          ...Array.from({ length: 8 }, (_, i) => ({ x: 0, y: -(i + 1) })),
+        ], // Promoted Rook gains King's diagonal moves
+      },
+      k: {
+        normal: [
+          { x: 0, y: -1 },
+          { x: 1, y: -1 },
+          { x: -1, y: -1 },
+          { x: 1, y: 0 },
+          { x: -1, y: 0 },
+          { x: 1, y: 1 },
+          { x: -1, y: 1 },
+          { x: 0, y: 1 },
+        ], // King moves one square in any direction
+      },
+      K: {
+        normal: [
+          { x: 0, y: -1 },
+          { x: 0, y: 1 },
+          { x: 1, y: 0 },
+          { x: -1, y: 0 },
+          { x: 1, y: 1 },
+          { x: -1, y: 1 },
+          { x: 1, y: -1 },
+          { x: -1, y: -1 },
+        ], // White King
+      },
+    };
+
     const isPromoted = piece.includes("+");
     const basePiece = piece.replace("+", "").toLowerCase();
     const isWhite = piece === piece.toUpperCase();
-  
+
     if (!pieceMovements[basePiece]) return [];
-  
-    const moveSet = isPromoted ?
-      pieceMovements[basePiece].promoted || pieceMovements[basePiece].normal :
-      pieceMovements[basePiece].normal;
-  
-    let possibleMoves = [];
-  
+
+    const moveSet = isPromoted ? pieceMovements[basePiece]?.promoted || pieceMovements[basePiece]?.normal : pieceMovements[basePiece]?.normal;
+    if (!moveSet) return [];
+
+    const possibleMoves = [];
+
     // Helper function to check if a position is within board bounds
     const isInBounds = (x, y) => x >= 0 && x < 9 && y >= 0 && y < 9;
-  
+
     // Helper function to check if a piece can capture at position
-    const canCapture = (x, y) => {
-      const targetPiece = board[x][y];
-      return targetPiece === " " ||
-        (isWhite ? targetPiece === targetPiece.toLowerCase() :
-          targetPiece === targetPiece.toUpperCase());
+    const canCapture = (newX, newY) => {
+        const target = board[newX][newY];
+        return target === " " || (isWhite ? target === target.toLowerCase() : target === target.toUpperCase());
     };
-  
+
     // Handle sliding pieces (rook, bishop, lance)
     const handleSlidingMove = (startX, startY, dx, dy) => {
       let newX = startX + dx;
       let newY = startY + dy;
-  
+
       while (isInBounds(newX, newY)) {
         if (board[newX][newY] === " ") {
           possibleMoves.push([newX, newY]);
@@ -264,13 +267,13 @@ const ShogiBoard = () => {
         newY += dy;
       }
     };
-  
+
     // Check each possible move based on piece type
     switch (basePiece) {
       case 'r': // Rook
         const rookDirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
         rookDirs.forEach(([dx, dy]) => handleSlidingMove(x, y, dx, dy));
-  
+
         // Add king-like moves for promoted rook
         if (isPromoted) {
           [[-1, -1], [-1, 1], [1, -1], [1, 1]].forEach(([dx, dy]) => {
@@ -282,11 +285,11 @@ const ShogiBoard = () => {
           });
         }
         break;
-  
+
       case 'b': // Bishop
         const bishopDirs = [[1, 1], [1, -1], [-1, 1], [-1, -1]];
         bishopDirs.forEach(([dx, dy]) => handleSlidingMove(x, y, dx, dy));
-  
+
         // Add king-like moves for promoted bishop
         if (isPromoted) {
           [[0, 1], [0, -1], [1, 0], [-1, 0]].forEach(([dx, dy]) => {
@@ -298,17 +301,17 @@ const ShogiBoard = () => {
           });
         }
         break;
-  
+
       case 'l': // Lance
         const direction = isWhite ? -1 : 1;
         handleSlidingMove(x, y, direction, 0);
         break;
-  
+
       case 'n': // Knight
         const knightMoves = isWhite ?
           [[-2, -1], [-2, 1]] : // White knight
           [[2, -1], [2, 1]];    // Black knight
-  
+
         knightMoves.forEach(([dx, dy]) => {
           const newX = x + dx;
           const newY = y + dy;
@@ -317,7 +320,7 @@ const ShogiBoard = () => {
           }
         });
         break;
-  
+
       case 'p': // Pawn
         const pawnDir = isWhite ? -1 : 1;
         const newX = x + pawnDir;
@@ -325,21 +328,21 @@ const ShogiBoard = () => {
           possibleMoves.push([newX, y]);
         }
         break;
-  
+
       default: // King, Gold General, Silver General, and promoted pieces
-        moveSet.forEach(move => {
-          const newX = x + (isWhite ? -move.y : move.y);
-          const newY = y + move.x;
-          if (isInBounds(newX, newY) && canCapture(newX, newY)) {
+        moveSet.forEach(({ x: dx, y: dy }) => {
+        const newX = x + (isWhite ? -dy : dy); // Adjust for perspective
+        const newY = y + dx;
+        if (isInBounds(newX, newY) && canCapture(newX, newY)) {
             possibleMoves.push([newX, newY]);
-          }
-        });
+        }
+    });
         break;
     }
-  
+
     return possibleMoves;
-  }, [pieceMovements]);
-  
+  }, []);
+
   // State management
   const [board, setBoard] = useState(initialBoard);
   const [currentPlayer, setCurrentPlayer] = useState("white");
@@ -355,15 +358,15 @@ const ShogiBoard = () => {
   const shouldPromote = (piece, x) => {
     if (!piece || piece.includes("+")) return false;
     if (piece.toLowerCase() === 'k' || piece.toLowerCase() === 'g') return false;
-    
+
     const isWhite = piece === piece.toUpperCase();
-    
+
     // Mandatory promotion for pawns, lances, and knights in last ranks
     if (piece.toLowerCase() === 'p' || piece.toLowerCase() === 'l' || piece.toLowerCase() === 'n') {
       if (isWhite && x === 0) return true;
       if (!isWhite && x === 8) return true;
     }
-    
+
     // Optional promotion in promotion zone
     return isWhite ? x <= 2 : x >= 6;
   };
@@ -412,11 +415,11 @@ const ShogiBoard = () => {
 
   const movePiece = (targetX, targetY) => {
     if (!selectedPiece || !possibleMoves.some(([px, py]) => px === targetX && py === targetY)) return;
-  
+
     const { x, y, piece } = selectedPiece;
     const updatedBoard = JSON.parse(JSON.stringify(board)); // Deep copy
     const capturedPiece = updatedBoard[targetX][targetY];
-  
+
     // Handle capture
     if (capturedPiece !== " ") {
       const normalizedPiece = capturedPiece.replace("+", ""); // Remove promotion status
@@ -427,10 +430,10 @@ const ShogiBoard = () => {
       }
       updatedBoard[targetX][targetY] = " "; // Clear the captured piece's position
     }
-  
+
     // Clear original position
     updatedBoard[x][y] = " ";
-  
+
     // Check for promotion
     if (shouldPromote(piece, targetX)) {
       const promotionChoice = window.confirm("Do you want to promote this piece?");
@@ -442,16 +445,16 @@ const ShogiBoard = () => {
     } else {
       updatedBoard[targetX][targetY] = piece;
     }
-  
+
     setBoard(updatedBoard);
     setCurrentPlayer(currentPlayer === "white" ? "black" : "white");
     setSelectedPiece(null);
     setPossibleMoves([]);
-  
+
     // Add the move to the history
     setMoveHistory([...moveHistory.slice(0, undoIndex), { board: updatedBoard, player: currentPlayer }]);
     setUndoIndex(moveHistory.length + 1);
-  
+
     // Check for victory condition
     if (isVictory()) {
       // Game is over, determine the winner and display the result
@@ -467,14 +470,14 @@ const ShogiBoard = () => {
   const isVictory = () => {
     const whiteKingPosition = findKingPosition("K");
     const blackKingPosition = findKingPosition("k");
-  
+
     if (!whiteKingPosition || !blackKingPosition) {
       return true; // If either king is missing, the game is over
     }
-  
+
     return false; // No victory condition met yet
   };
-  
+
   const handleCapturedPieceSelect = (piece, player, targetX, targetY) => {
     if (currentPlayer !== player) return;
     setSelectedPiece({ piece, isCaptured: true, x: targetX, y: targetY });
@@ -509,7 +512,7 @@ const ShogiBoard = () => {
     const piece = board[x][y];
     const isWhitePiece = piece === piece.toUpperCase();
     const isBlackPiece = piece !== " " && piece === piece.toLowerCase();
-  
+
     if (!selectedPiece && piece !== " " && ((currentPlayer === "white" && isWhitePiece) || (currentPlayer === "black" && isBlackPiece))) {
       if (isInCheck(currentPlayer)) {
         // Player's king is in check, only allow them to move the king
@@ -543,14 +546,14 @@ const ShogiBoard = () => {
       }
     }
   };
-  
+
   const handleDrop = (targetX, targetY) => {
     if (!selectedPiece || !selectedPiece.isCaptured || !possibleMoves.some(([px, py]) => px === targetX && py === targetY)) return;
-  
+
     const { piece, isCaptured } = selectedPiece;
     const updatedBoard = [...board];
     updatedBoard[targetX][targetY] = currentPlayer === "white" ? piece.toUpperCase() : piece.toLowerCase();
-  
+
     // Update the captured pieces arrays
     if (isCaptured) {
       if (currentPlayer === "white") {
@@ -559,18 +562,18 @@ const ShogiBoard = () => {
         setCapturedBlack(capturedBlack.filter((p) => p !== piece.toUpperCase()));
       }
     }
-  
+
     setBoard(updatedBoard);
     setCurrentPlayer(currentPlayer === "white" ? "black" : "white");
     setSelectedPiece(null);
     setPossibleMoves([]);
-  
+
     // Add the move to the history
     setMoveHistory([...moveHistory.slice(0, undoIndex), { board: updatedBoard, player: currentPlayer }]);
     setUndoIndex(moveHistory.length + 1);
   };
 
-const findKingPosition = useCallback((kingPiece) => {
+  const findKingPosition = useCallback((kingPiece) => {
     for (let x = 0; x < 9; x++) {
       for (let y = 0; y < 9; y++) {
         if (board[x][y] === kingPiece) {
@@ -579,7 +582,7 @@ const findKingPosition = useCallback((kingPiece) => {
       }
     }
     return null;
-  },[board]);
+  }, [board]);
 
   const isInCheck = useCallback((player) => {
     const kingPosition = player === "white" ? findKingPosition("K") : findKingPosition("k");
@@ -597,7 +600,7 @@ const findKingPosition = useCallback((kingPiece) => {
       }
     }
     return false;
-  },[board, findKingPosition, getPossibleMoves]);
+  }, [board, findKingPosition, getPossibleMoves]);
 
   const isCheckmate = useCallback((player) => {
     if (!isInCheck(player)) return false;
@@ -614,9 +617,9 @@ const findKingPosition = useCallback((kingPiece) => {
     }
 
     return true;
-  },[board, getPossibleMoves, isInCheck]);
+  }, [board, getPossibleMoves, isInCheck]);
 
-  const isStaleMate =useCallback( (player) => {
+  const isStaleMate = useCallback((player) => {
     if (isInCheck(player)) return false;
 
     for (let x = 0; x < 9; x++) {
@@ -631,7 +634,7 @@ const findKingPosition = useCallback((kingPiece) => {
     }
 
     return true;
-  },[board, getPossibleMoves, isInCheck]);
+  }, [board, getPossibleMoves, isInCheck]);
 
   const handleUndo = () => {
     if (undoIndex > 0) {
@@ -659,7 +662,7 @@ const findKingPosition = useCallback((kingPiece) => {
     if (isCheckmate(currentPlayer)) {
       alert(`Checkmate! ${currentPlayer === "white" ? "Black" : "White"} wins.`);
       // Reset the game or do any other desired actions
-      
+
     } else if (isStaleMate(currentPlayer)) {
       alert("Stalemate! The game is a draw.");
       // Reset the game or do any other desired actions
@@ -667,43 +670,40 @@ const findKingPosition = useCallback((kingPiece) => {
   }, [currentPlayer, isCheckmate, isStaleMate]);
 
   return (
-<div className="container flex flex-col items-center">
-  <h1 className="mb-24 text-4xl font-black text-black">
-    Current Player: {currentPlayer}
-    {isInCheck(currentPlayer) && ` (in check)`}
-  </h1>
-  <div
-    className={`board shogi-board ${
-      currentPlayer === "black" ? "rotate-0" : ""
-    }`}
-  >
-    {board.map((row, x) =>
-      row.map((piece, y) => (
-        <div
-          key={`${x}-${y}`}
-          className={`cell ${
-            Array.isArray(possibleMoves) &&
-            possibleMoves.some(([px, py]) => px === x && py === y)
-              ? "highlight"
-              : ""
+    <div className="container flex flex-col items-center">
+      <h1 className="mb-24 text-4xl font-black text-black">
+        Current Player: {currentPlayer}
+        {isInCheck(currentPlayer) && ` (in check)`}
+      </h1>
+      <div
+        className={`board shogi-board ${currentPlayer === "black" ? "rotate-0" : ""
           }`}
-          onClick={() => handleSquareClick(x, y)}
-        >
-          {piece !== " " && (
-            <Image
-              className={`object-center object-scale-down ${
-                piece === piece.toLowerCase() ? "rotate-0" : ""
-              }`}
-              src={pieceImages[piece]}
-              alt={piece}
-              width={45}
-              height={45}
-            />
-          )}
-        </div>
-      ))
-    )}
-  </div>
+      >
+        {board.map((row, x) =>
+          row.map((piece, y) => (
+            <div
+              key={`${x}-${y}`}
+              className={`cell ${Array.isArray(possibleMoves) &&
+                  possibleMoves.some(([px, py]) => px === x && py === y)
+                  ? "highlight"
+                  : ""
+                }`}
+              onClick={() => handleSquareClick(x, y)}
+            >
+              {piece !== " " && (
+                <Image
+                  className={`object-center object-scale-down ${piece === piece.toLowerCase() ? "rotate-0" : ""
+                    }`}
+                  src={pieceImages[piece]}
+                  alt={piece}
+                  width={45}
+                  height={45}
+                />
+              )}
+            </div>
+          ))
+        )}
+      </div>
 
 
       <div className="controls m-5 w-full mt-24 max-w-72 mx-auto space-x-0 sm:space-x-10 sm:space-y-0">
@@ -711,54 +711,54 @@ const findKingPosition = useCallback((kingPiece) => {
         <button className="float-end bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded" onClick={handleRedo}>Redo</button>
       </div>
       <div className="captured m-5 w-full">
-  <div className="float-start inline-flex flex-row flex-wrap w-1/2">
-    <h3>Captured by White</h3>
-    {capturedWhite.map((piece, index) => (
-      <Image
-        className="object-center object-scale-down  w-auto h-auto"
-        key={index}
-        src={pieceImages[piece.toLowerCase()]}
-        alt={piece}
-        width={30}
-        height={30}
-        onClick={(e) =>
-          handleCapturedPieceSelect(
-            piece,
-            "black",
-            parseInt(e.currentTarget.dataset.x),
-            parseInt(e.currentTarget.dataset.y)
-          )
-        }
-        data-x={Math.floor(Math.random() * 9)}
-        data-y={Math.floor(Math.random() * 9)}
-      />
-    ))}
-  </div>
-  <div className="float-end inline-flex flex-row-reverse flex-wrap w-1/2">
-    <h3>Captured by Black</h3>
-    {capturedBlack.map((piece, index) => (
-      <Image
-        className="object-center object-scale-down  w-auto h-auto"
-        key={index}
-        src={pieceImages[piece.toUpperCase()]}
-        alt={piece}
-        width={30}
-        height={30}
-        onClick={(e) =>
-          handleCapturedPieceSelect(
-            piece,
-            "white",
-            parseInt(e.currentTarget.dataset.x),
-            parseInt(e.currentTarget.dataset.y)
-          )
-        }
-        data-x={Math.floor(Math.random() * 9)}
-        data-y={Math.floor(Math.random() * 9)}
-      />
-    ))}
-  </div>
-</div>
-</div>
+        <div className="float-start inline-flex flex-row flex-wrap w-1/2">
+          <h3>Captured by White</h3>
+          {capturedWhite.map((piece, index) => (
+            <Image
+              className="object-center object-scale-down  w-auto h-auto"
+              key={index}
+              src={pieceImages[piece.toLowerCase()]}
+              alt={piece}
+              width={30}
+              height={30}
+              onClick={(e) =>
+                handleCapturedPieceSelect(
+                  piece,
+                  "black",
+                  parseInt(e.currentTarget.dataset.x),
+                  parseInt(e.currentTarget.dataset.y)
+                )
+              }
+              data-x={Math.floor(Math.random() * 9)}
+              data-y={Math.floor(Math.random() * 9)}
+            />
+          ))}
+        </div>
+        <div className="float-end inline-flex flex-row-reverse flex-wrap w-1/2">
+          <h3>Captured by Black</h3>
+          {capturedBlack.map((piece, index) => (
+            <Image
+              className="object-center object-scale-down  w-auto h-auto"
+              key={index}
+              src={pieceImages[piece.toUpperCase()]}
+              alt={piece}
+              width={30}
+              height={30}
+              onClick={(e) =>
+                handleCapturedPieceSelect(
+                  piece,
+                  "white",
+                  parseInt(e.currentTarget.dataset.x),
+                  parseInt(e.currentTarget.dataset.y)
+                )
+              }
+              data-x={Math.floor(Math.random() * 9)}
+              data-y={Math.floor(Math.random() * 9)}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
   );
 };
 
