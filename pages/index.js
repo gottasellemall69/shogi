@@ -54,6 +54,14 @@ const ShogiBoard = () => {
   const getPossibleMoves = useCallback((piece, x, y, board) => {
     const pieceMovements = {
       p: {
+        promoted: [
+          { x: 0, y: 1 },  // Forward
+          { x: 0, y: -1 }, // Backward
+          { x: 1, y: 0 },  // Right
+          { x: -1, y: 0 }, // Left
+          { x: 1, y: 1 },  // Diagonal forward-right
+          { x: -1, y: 1 }  // Diagonal forward-left
+        ],
         normal: [{ x: 0, y: 1 }], // Black Pawn moves forward
         promoted: [
             { x: 0, y: 1 }, // Forward
@@ -65,6 +73,14 @@ const ShogiBoard = () => {
         ],
     },
     P: {
+        promoted: [
+          { x: 0, y: -1 }, // Forward
+          { x: 0, y: 1 },  // Backward
+          { x: 1, y: 0 },  // Right
+          { x: -1, y: 0 }, // Left
+          { x: 1, y: -1 }, // Diagonal forward-right
+          { x: -1, y: -1 } // Diagonal forward-left
+        ],
         normal: [{ x: 0, y: -1 }], // White Pawn moves forward
         promoted: [
             { x: 0, y: 1 }, // Backward
@@ -119,6 +135,13 @@ const ShogiBoard = () => {
       },
       s: {
         normal: [
+          { x: 0, y: 1 },  // Forward
+          { x: 1, y: 1 },  // Forward-right
+          { x: -1, y: 1 }, // Forward-left
+          { x: 1, y: -1 }, // Backward-right
+          { x: -1, y: -1 } // Backward-left
+        ],
+        normal: [
           { x: 1, y: 1 },
           { x: -1, y: 1 },
           { x: 0, y: 1 },
@@ -133,6 +156,13 @@ const ShogiBoard = () => {
         ], // Promoted Silver General (can move forward, backward, left, and right)
       },
       S: {
+        normal: [
+          { x: 0, y: -1 },  // Forward
+          { x: 1, y: -1 },  // Forward-right
+          { x: -1, y: -1 }, // Forward-left
+          { x: 1, y: 1 },   // Backward-right
+          { x: -1, y: 1 }   // Backward-left
+        ],
         normal: [
           { x: 1, y: -1 },
           { x: -1, y: -1 },
@@ -547,15 +577,16 @@ const ShogiBoard = () => {
         movePiece(x, y);
         if (capturedPiece === (currentPlayer === "white" ? "k" : "K")) {
           // King has been captured, end the game
-          alert(`${currentPlayer === "black" ? "White" : "Black"} wins!`);
+          alert(`${currentPlayer === "black" ? "Black" : "White"} wins!`);
           // Reset the game or do any other desired actions
         }
       } else if (selectedPiece.isCaptured) {
-        handleDrop(x, y);
+        dropCapturedPiece(x, y);
       } else {
         setSelectedPiece(null);
         setPossibleMoves([]);
       }
+      
     }
   };
 
@@ -579,7 +610,7 @@ const ShogiBoard = () => {
     setCurrentPlayer(currentPlayer === "white" ? "black" : "white");
     setSelectedPiece(null);
     setPossibleMoves([]);
-
+    
     // Add the move to the history
     setMoveHistory([...moveHistory.slice(0, undoIndex), { board: updatedBoard, player: currentPlayer }]);
     setUndoIndex(moveHistory.length + 1);
@@ -605,7 +636,9 @@ const ShogiBoard = () => {
       for (let j = 0; j < 9; j++) {
         if (board[i][j] !== " " && (player === "white" ? board[i][j] === board[i][j].toLowerCase() : board[i][j] === board[i][j].toUpperCase())) {
           const moves = getPossibleMoves(board[i][j], i, j, board);
-          if (moves.some(([px, py]) => px === kingX && py === kingY)) {
+        const isPromoted = board[i][j].includes("+");
+        if (isPromoted && moves.some(([px, py]) => px === kingX && py === kingY)) {
+          return true; // King is in check
             return true;
           }
         }
@@ -705,7 +738,7 @@ const ShogiBoard = () => {
             >
               {piece !== " " && (
                 <Image
-                  className={`object-center object-scale-down ${piece === piece.toLowerCase() ? "rotate-0" : ""
+                  className={`object-center object-scale-down ${piece === piece.toLowerCase() ? "rotate-180" : ""
                     }`}
                   src={pieceImages[piece]}
                   alt={piece}
