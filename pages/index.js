@@ -119,11 +119,11 @@ const ShogiBoard = () => {
       },
       s: {
         normal: [
-          { x: 1, y: -1 },
-          { x: -1, y: -1 },
-          { x: 0, y: -1 },
           { x: 1, y: 1 },
           { x: -1, y: 1 },
+          { x: 0, y: 1 },
+          { x: 1, y: -1 },
+          { x: -1, y: -1 },
         ], // Unpromoted Silver General
         promoted: [
           { x: 0, y: -1 },
@@ -134,11 +134,11 @@ const ShogiBoard = () => {
       },
       S: {
         normal: [
-          { x: 1, y: 1 },
-          { x: -1, y: 1 },
-          { x: 0, y: 1 },
           { x: 1, y: -1 },
           { x: -1, y: -1 },
+          { x: 0, y: -1 },
+          { x: 1, y: 1 },
+          { x: -1, y: 1 },
         ], // Unpromoted White Silver General
         promoted: [
           { x: 0, y: -1 },
@@ -149,18 +149,18 @@ const ShogiBoard = () => {
       },
       g: {
         normal: [
-          { x: 0, y: -1 },
+          { x: 0, y: 1 },
           { x: 1, y: 0 },
           { x: -1, y: 0 },
-          { x: 0, y: 1 },
-          { x: 1, y: -1 },
-          { x: -1, y: -1 },
+          { x: 0, y: -1 },
+          { x: 1, y: 1 },
+          { x: -1, y: 1 },
         ], // Gold General
       },
       G: {
         normal: [
-          { x: 0, y: -1 },
           { x: 0, y: 1 },
+          { x: 0, y: -1 },
           { x: 1, y: 0 },
           { x: -1, y: 0 },
           { x: 1, y: 1 },
@@ -321,25 +321,34 @@ const ShogiBoard = () => {
         });
         break;
 
-      case 'p': // Pawn
+        case 'p': // Pawn
         const pawnDir = isWhite ? -1 : 1;
         const newX = x + pawnDir;
         if (isInBounds(newX, y) && canCapture(newX, y)) {
           possibleMoves.push([newX, y]);
         }
+        if (isPromoted) {
+          [[0, 1], [0, -1], [1, 0], [-1, 0]].forEach(([dx, dy]) => {
+            const newX = x + dx;
+            const newY = y + dy;
+            if (isInBounds(newX, newY) && canCapture(newX, newY)) {
+              possibleMoves.push([newX, newY]);
+            }
+          });
+        }
         break;
-
+  
       default: // King, Gold General, Silver General, and promoted pieces
         moveSet.forEach(({ x: dx, y: dy }) => {
-        const newX = x + (isWhite ? -dy : dy); // Adjust for perspective
-        const newY = y + dx;
-        if (isInBounds(newX, newY) && canCapture(newX, newY)) {
+          const newX = x + (isWhite ? -dy : dy); // Adjust for perspective
+          const newY = y + dx;
+          if (isInBounds(newX, newY) && canCapture(newX, newY)) {
             possibleMoves.push([newX, newY]);
-        }
-    });
+          }
+        });
         break;
     }
-
+  
     return possibleMoves;
   }, []);
 
@@ -459,8 +468,11 @@ const ShogiBoard = () => {
     if (isVictory()) {
       // Game is over, determine the winner and display the result
       if (findKingPosition("K")) {
-        alert("White wins!");
-      } else {
+        alert("Black wins!");
+      } if (findKingPosition("k")) {
+        alert("White Wins!");
+      }
+      else {
         alert("Game Over!");
       }
       // Reset the game or do any other desired actions
@@ -482,27 +494,27 @@ const ShogiBoard = () => {
     if (currentPlayer !== player) return;
     setSelectedPiece({ piece, isCaptured: true, x: targetX, y: targetY });
     setPossibleMoves(getDropLocations(piece, board));
-    dropCapturedPiece(targetX, targetY)
   };
 
   const dropCapturedPiece = (targetX, targetY) => {
     if (!selectedPiece || !selectedPiece.isCaptured || !possibleMoves.some(([px, py]) => px === targetX && py === targetY)) return;
-
-    const piece = selectedPiece.piece;
+  
+    const { piece } = selectedPiece;
     const updatedBoard = [...board];
     updatedBoard[targetX][targetY] = currentPlayer === "white" ? piece.toUpperCase() : piece.toLowerCase();
-
+  
+    // Update the captured pieces arrays
     if (currentPlayer === "white") {
-      setCapturedWhite(capturedWhite.filter((p) => p !== piece));
+      setCapturedWhite(capturedWhite.filter((p) => p !== piece.toLowerCase()));
     } else {
-      setCapturedBlack(capturedBlack.filter((p) => p !== piece));
+      setCapturedBlack(capturedBlack.filter((p) => p !== piece.toUpperCase()));
     }
-
+  
     setBoard(updatedBoard);
     setCurrentPlayer(currentPlayer === "white" ? "black" : "white");
     setSelectedPiece(null);
-    setPossibleMoves(pieceMovements);
-
+    setPossibleMoves([]);
+  
     // Add the move to the history
     setMoveHistory([...moveHistory.slice(0, undoIndex), { board: updatedBoard, player: currentPlayer }]);
     setUndoIndex(moveHistory.length + 1);
@@ -512,7 +524,7 @@ const ShogiBoard = () => {
     const piece = board[x][y];
     const isWhitePiece = piece === piece.toUpperCase();
     const isBlackPiece = piece !== " " && piece === piece.toLowerCase();
-
+  
     if (!selectedPiece && piece !== " " && ((currentPlayer === "white" && isWhitePiece) || (currentPlayer === "black" && isBlackPiece))) {
       if (isInCheck(currentPlayer)) {
         // Player's king is in check, only allow them to move the king
@@ -660,7 +672,7 @@ const ShogiBoard = () => {
 
   useEffect(() => {
     if (isCheckmate(currentPlayer)) {
-      alert(`Checkmate! ${currentPlayer === "white" ? "Black" : "White"} wins.`);
+      alert(`Checkmate! ${currentPlayer === "white" ? "White" : "Black"} wins.`);
       // Reset the game or do any other desired actions
 
     } else if (isStaleMate(currentPlayer)) {
@@ -669,6 +681,7 @@ const ShogiBoard = () => {
     }
   }, [currentPlayer, isCheckmate, isStaleMate]);
 
+  
   return (
     <div className="container flex flex-col items-center">
       <h1 className="mb-24 text-4xl font-black text-black">
@@ -710,6 +723,8 @@ const ShogiBoard = () => {
         <button className="float-start bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded" onClick={handleUndo}>Undo</button>
         <button className="float-end bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded" onClick={handleRedo}>Redo</button>
       </div>
+      
+
       <div className="captured m-5 w-full">
         <div className="float-start inline-flex flex-row flex-wrap w-1/2">
           <h3>Captured by White</h3>
