@@ -47,91 +47,77 @@ const ShogiBoard = () => {
     K: "/images/pieces/King.svg",
   };
 
-
-
-
-
   const getPossibleMoves = useCallback((piece, x, y, board) => {
     const pieceMovements = {
       p: {
+        normal: [{ x: 0, y: 1 }], // Black Pawn moves forward
         promoted: [
           { x: 0, y: 1 },  // Forward
           { x: 0, y: -1 }, // Backward
           { x: 1, y: 0 },  // Right
           { x: -1, y: 0 }, // Left
           { x: 1, y: 1 },  // Diagonal forward-right
-          { x: -1, y: 1 }  // Diagonal forward-left
+          { x: -1, y: 1 }, // Diagonal forward-left
         ],
-        normal: [{ x: 0, y: 1 }], // Black Pawn moves forward
-        promoted: [
-            { x: 0, y: 1 }, // Forward
-            { x: 0, y: -1 }, // Backward
-            { x: 1, y: 0 }, // Right
-            { x: -1, y: 0 }, // Left
-            { x: 1, y: 1 }, // Diagonal forward-right
-            { x: -1, y: 1 }, // Diagonal forward-left
-        ],
-    },
-    P: {
+      },
+      P: {
+        normal: [{ x: 0, y: -1 }], // White Pawn moves forward
         promoted: [
           { x: 0, y: -1 }, // Forward
           { x: 0, y: 1 },  // Backward
           { x: 1, y: 0 },  // Right
           { x: -1, y: 0 }, // Left
           { x: 1, y: -1 }, // Diagonal forward-right
-          { x: -1, y: -1 } // Diagonal forward-left
+          { x: -1, y: -1 }, // Diagonal forward-left
         ],
-        normal: [{ x: 0, y: -1 }], // White Pawn moves forward
-        promoted: [
-            { x: 0, y: 1 }, // Backward
-            { x: 0, y: -1 }, // Forward
-            { x: 1, y: 0 }, // Right
-            { x: -1, y: 0 }, // Left
-            { x: 1, y: -1 }, // Diagonal forward-right
-            { x: -1, y: -1 }, // Diagonal forward-left
-        ],
-    },
+      },
       l: {
-        normal: Array.from({ length: 8 }, (_, i) => ({ x: 0, y: -(i + 1) })), // Unpromoted Lance (moves any number of squares forward)
+        normal: Array.from({ length: 8 }, (_, i) => ({ x: 0, y: -(i + 1) })), // Black Lance moves any number of squares forward
         promoted: [
-          { x: 0, y: -1 },
-          { x: 0, y: 1 },
-          { x: 1, y: 0 },
-          { x: -1, y: 0 },
-        ], // Promoted Lance (can move forward, backward, left, and right)
+          { x: 0, y: -1 }, // Backward
+          { x: 0, y: 1 },  // Forward
+          { x: 1, y: 0 },  // Right
+          { x: -1, y: 0 }, // Left
+        ],
       },
       L: {
-        normal: Array.from({ length: 8 }, (_, i) => ({ x: 0, y: i + 1 })), // Unpromoted White Lance
+        normal: Array.from({ length: 8 }, (_, i) => ({ x: 0, y: i + 1 })), // White Lance moves any number of squares forward
         promoted: [
-          { x: 0, y: -1 },
-          { x: 0, y: 1 },
-          { x: 1, y: 0 },
-          { x: -1, y: 0 },
-        ], // Promoted White Lance (can move forward, backward, left, and right)
+          { x: 0, y: -1 }, // Backward
+          { x: 0, y: 1 },  // Forward
+          { x: 1, y: 0 },  // Right
+          { x: -1, y: 0 }, // Left
+        ],
       },
       n: {
         normal: [
-          { x: 1, y: -2 },
+          { x: 1, y: -2 }, // Black Knight jumps forward
           { x: -1, y: -2 },
-        ], // Unpromoted Knight (jumps forward)
+        ],
         promoted: [
-          { x: 0, y: -1 },
-          { x: 0, y: 1 },
-          { x: 1, y: 0 },
-          { x: -1, y: 0 },
-        ], // Promoted Knight (can move forward, backward, left, and right)
+          { x: 0, y: -1 }, // Backward
+          { x: 0, y: 1 },  // Forward
+          { x: 1, y: 0 },  // Right
+          { x: -1, y: 0 }, // Left
+          { x: 1, y: -1 }, // Diagonal backward-right
+          { x: -1, y: -1 }, // Diagonal backward-left
+        ],
       },
       N: {
         normal: [
-          { x: 1, y: 2 },
+          { x: 1, y: 2 },  // White Knight jumps forward
           { x: -1, y: 2 },
-        ], // Unpromoted White Knight
+        ],
         promoted: [
-          { x: 0, y: -1 },
-          { x: 0, y: 1 },
-          { x: 1, y: 0 },
-          { x: -1, y: 0 },
-        ], // Promoted White Knight (can move forward, backward, left, and right)
+          { x: 0, y: 1 },  // Forward
+          { x: 0, y: -1 }, // Backward
+          { x: 1, y: 0 },  // Right
+          { x: -1, y: 0 }, // Left
+          { x: 1, y: 1 },  // Forward-right diagonal
+          { x: -1, y: 1 }, // Forward-left diagonal
+          { x: 1, y: -1 }, // Backward-right diagonal
+          { x: -1, y: -1 }, // Backward-left diagonal
+        ],
       },
       s: {
         normal: [
@@ -141,51 +127,37 @@ const ShogiBoard = () => {
           { x: 1, y: -1 }, // Backward-right
           { x: -1, y: -1 } // Backward-left
         ],
-        normal: [
-          { x: 1, y: 1 },
-          { x: -1, y: 1 },
-          { x: 0, y: 1 },
-          { x: 1, y: -1 },
-          { x: -1, y: -1 },
-        ], // Unpromoted Silver General
         promoted: [
-          { x: 0, y: -1 },
           { x: 0, y: 1 },
+          { x: 0, y: -1 },
           { x: 1, y: 0 },
           { x: -1, y: 0 },
-        ], // Promoted Silver General (can move forward, backward, left, and right)
+        ],
       },
       S: {
         normal: [
-          { x: 0, y: -1 },  // Forward
-          { x: 1, y: -1 },  // Forward-right
-          { x: -1, y: -1 }, // Forward-left
-          { x: 1, y: 1 },   // Backward-right
-          { x: -1, y: 1 }   // Backward-left
-        ],
-        normal: [
+          { x: 0, y: -1 },
           { x: 1, y: -1 },
           { x: -1, y: -1 },
-          { x: 0, y: -1 },
           { x: 1, y: 1 },
           { x: -1, y: 1 },
-        ], // Unpromoted White Silver General
+        ],
         promoted: [
-          { x: 0, y: -1 },
           { x: 0, y: 1 },
+          { x: 0, y: -1 },
           { x: 1, y: 0 },
           { x: -1, y: 0 },
-        ], // Promoted White Silver General (can move forward, backward, left, and right)
+        ],
       },
       g: {
         normal: [
           { x: 0, y: 1 },
+          { x: 0, y: -1 },
           { x: 1, y: 0 },
           { x: -1, y: 0 },
-          { x: 0, y: -1 },
           { x: 1, y: 1 },
           { x: -1, y: 1 },
-        ], // Gold General
+        ],
       },
       G: {
         normal: [
@@ -195,11 +167,11 @@ const ShogiBoard = () => {
           { x: -1, y: 0 },
           { x: 1, y: 1 },
           { x: -1, y: 1 },
-        ], // White Gold General
+        ],
       },
       b: {
         normal: [
-          ...Array.from({ length: 8 }, (_, i) => ({ x: i + 1, y: i + 1 })), // Diagonal moves in 4 directions
+          ...Array.from({ length: 8 }, (_, i) => ({ x: i + 1, y: i + 1 })),
           ...Array.from({ length: 8 }, (_, i) => ({ x: -(i + 1), y: i + 1 })),
           ...Array.from({ length: 8 }, (_, i) => ({ x: i + 1, y: -(i + 1) })),
           ...Array.from({ length: 8 }, (_, i) => ({ x: -(i + 1), y: -(i + 1) })),
@@ -213,51 +185,40 @@ const ShogiBoard = () => {
           ...Array.from({ length: 8 }, (_, i) => ({ x: -(i + 1), y: i + 1 })),
           ...Array.from({ length: 8 }, (_, i) => ({ x: i + 1, y: -(i + 1) })),
           ...Array.from({ length: 8 }, (_, i) => ({ x: -(i + 1), y: -(i + 1) })),
-        ], // Promoted Bishop gains King's orthogonal moves
+        ],
       },
       r: {
         normal: [
-          ...Array.from({ length: 8 }, (_, i) => ({ x: i + 1, y: 0 })), // Rook moves in 4 straight directions
-          ...Array.from({ length: 8 }, (_, i) => ({ x: -(i + 1), y: 0 })),
           ...Array.from({ length: 8 }, (_, i) => ({ x: 0, y: i + 1 })),
           ...Array.from({ length: 8 }, (_, i) => ({ x: 0, y: -(i + 1) })),
-        ],
-        promoted: [
-          { x: 0, y: -1 },
-          { x: 0, y: 1 },
-          { x: 1, y: 0 },
-          { x: -1, y: 0 },
           ...Array.from({ length: 8 }, (_, i) => ({ x: i + 1, y: 0 })),
           ...Array.from({ length: 8 }, (_, i) => ({ x: -(i + 1), y: 0 })),
+        ],
+        promoted: [
+          { x: 1, y: 1 },
+          { x: -1, y: 1 },
+          { x: 1, y: -1 },
+          { x: -1, y: -1 },
           ...Array.from({ length: 8 }, (_, i) => ({ x: 0, y: i + 1 })),
           ...Array.from({ length: 8 }, (_, i) => ({ x: 0, y: -(i + 1) })),
-        ], // Promoted Rook gains King's diagonal moves
+          ...Array.from({ length: 8 }, (_, i) => ({ x: i + 1, y: 0 })),
+          ...Array.from({ length: 8 }, (_, i) => ({ x: -(i + 1), y: 0 })),
+        ],
       },
       k: {
         normal: [
-          { x: 0, y: -1 },
-          { x: 1, y: -1 },
-          { x: -1, y: -1 },
-          { x: 1, y: 0 },
-          { x: -1, y: 0 },
-          { x: 1, y: 1 },
-          { x: -1, y: 1 },
           { x: 0, y: 1 },
-        ], // King moves one square in any direction
-      },
-      K: {
-        normal: [
           { x: 0, y: -1 },
-          { x: 0, y: 1 },
           { x: 1, y: 0 },
           { x: -1, y: 0 },
           { x: 1, y: 1 },
           { x: -1, y: 1 },
           { x: 1, y: -1 },
           { x: -1, y: -1 },
-        ], // White King
+        ],
       },
     };
+
 
     const isPromoted = piece.includes("+");
     const basePiece = piece.replace("+", "").toLowerCase();
@@ -268,15 +229,15 @@ const ShogiBoard = () => {
     const moveSet = isPromoted ? pieceMovements[basePiece]?.promoted || pieceMovements[basePiece]?.normal : pieceMovements[basePiece]?.normal;
     if (!moveSet) return [];
 
-    const possibleMoves = [];
+    const possibleMoves = [moveSet];
 
     // Helper function to check if a position is within board bounds
     const isInBounds = (x, y) => x >= 0 && x < 9 && y >= 0 && y < 9;
 
     // Helper function to check if a piece can capture at position
     const canCapture = (newX, newY) => {
-        const target = board[newX][newY];
-        return target === " " || (isWhite ? target === target.toLowerCase() : target === target.toUpperCase());
+      const target = board[newX][newY];
+      return target === " " || (isWhite ? target === target.toLowerCase() : target === target.toUpperCase());
     };
 
     // Handle sliding pieces (rook, bishop, lance)
@@ -351,7 +312,7 @@ const ShogiBoard = () => {
         });
         break;
 
-        case 'p': // Pawn
+      case 'p': // Pawn
         const pawnDir = isWhite ? -1 : 1;
         const newX = x + pawnDir;
         if (isInBounds(newX, y) && canCapture(newX, y)) {
@@ -367,7 +328,7 @@ const ShogiBoard = () => {
           });
         }
         break;
-  
+
       default: // King, Gold General, Silver General, and promoted pieces
         moveSet.forEach(({ x: dx, y: dy }) => {
           const newX = x + (isWhite ? -dy : dy); // Adjust for perspective
@@ -378,7 +339,7 @@ const ShogiBoard = () => {
         });
         break;
     }
-  
+
     return possibleMoves;
   }, []);
 
@@ -453,6 +414,19 @@ const ShogiBoard = () => {
   };
 
   const movePiece = (targetX, targetY) => {
+
+    const isMoveSafe = (x, y, targetX, targetY, board, player) => {
+      const simulatedBoard = JSON.parse(JSON.stringify(board)); // Create a deep copy of the board
+      const piece = simulatedBoard[x][y];
+    
+      // Simulate the move
+      simulatedBoard[targetX][targetY] = piece;
+      simulatedBoard[x][y] = " ";
+    
+      // Check if the king is in check after this move
+      return !isInCheck(player, simulatedBoard);
+    };
+    
     if (!selectedPiece || !possibleMoves.some(([px, py]) => px === targetX && py === targetY)) return;
 
     const { x, y, piece } = selectedPiece;
@@ -528,23 +502,23 @@ const ShogiBoard = () => {
 
   const dropCapturedPiece = (targetX, targetY) => {
     if (!selectedPiece || !selectedPiece.isCaptured || !possibleMoves.some(([px, py]) => px === targetX && py === targetY)) return;
-  
+
     const { piece } = selectedPiece;
     const updatedBoard = [...board];
     updatedBoard[targetX][targetY] = currentPlayer === "white" ? piece.toUpperCase() : piece.toLowerCase();
-  
+
     // Update the captured pieces arrays
     if (currentPlayer === "white") {
       setCapturedWhite(capturedWhite.filter((p) => p !== piece.toLowerCase()));
     } else {
       setCapturedBlack(capturedBlack.filter((p) => p !== piece.toUpperCase()));
     }
-  
+
     setBoard(updatedBoard);
     setCurrentPlayer(currentPlayer === "white" ? "black" : "white");
     setSelectedPiece(null);
     setPossibleMoves([]);
-  
+
     // Add the move to the history
     setMoveHistory([...moveHistory.slice(0, undoIndex), { board: updatedBoard, player: currentPlayer }]);
     setUndoIndex(moveHistory.length + 1);
@@ -554,7 +528,7 @@ const ShogiBoard = () => {
     const piece = board[x][y];
     const isWhitePiece = piece === piece.toUpperCase();
     const isBlackPiece = piece !== " " && piece === piece.toLowerCase();
-  
+
     if (!selectedPiece && piece !== " " && ((currentPlayer === "white" && isWhitePiece) || (currentPlayer === "black" && isBlackPiece))) {
       if (isInCheck(currentPlayer)) {
         // Player's king is in check, only allow them to move the king
@@ -581,12 +555,13 @@ const ShogiBoard = () => {
           // Reset the game or do any other desired actions
         }
       } else if (selectedPiece.isCaptured) {
-        dropCapturedPiece(x, y);
+        dropPiece(x, y);
+        dropCapturedPiece(x, y)
       } else {
         setSelectedPiece(null);
         setPossibleMoves([]);
       }
-      
+
     }
   };
 
@@ -610,7 +585,7 @@ const ShogiBoard = () => {
     setCurrentPlayer(currentPlayer === "white" ? "black" : "white");
     setSelectedPiece(null);
     setPossibleMoves([]);
-    
+
     // Add the move to the history
     setMoveHistory([...moveHistory.slice(0, undoIndex), { board: updatedBoard, player: currentPlayer }]);
     setUndoIndex(moveHistory.length + 1);
@@ -636,9 +611,9 @@ const ShogiBoard = () => {
       for (let j = 0; j < 9; j++) {
         if (board[i][j] !== " " && (player === "white" ? board[i][j] === board[i][j].toLowerCase() : board[i][j] === board[i][j].toUpperCase())) {
           const moves = getPossibleMoves(board[i][j], i, j, board);
-        const isPromoted = board[i][j].includes("+");
-        if (isPromoted && moves.some(([px, py]) => px === kingX && py === kingY)) {
-          return true; // King is in check
+          const isPromoted = board[i][j].includes("+");
+          if (isPromoted && moves.some(([px, py]) => px === kingX && py === kingY)) {
+            return true; // King is in check
             return true;
           }
         }
@@ -714,7 +689,7 @@ const ShogiBoard = () => {
     }
   }, [currentPlayer, isCheckmate, isStaleMate]);
 
-  
+
   return (
     <div className="container flex flex-col items-center">
       <h1 className="mb-24 text-4xl font-black text-black">
@@ -730,9 +705,9 @@ const ShogiBoard = () => {
             <div
               key={`${x}-${y}`}
               className={`cell ${Array.isArray(possibleMoves) &&
-                  possibleMoves.some(([px, py]) => px === x && py === y)
-                  ? "highlight"
-                  : ""
+                possibleMoves.some(([px, py]) => px === x && py === y)
+                ? "highlight"
+                : ""
                 }`}
               onClick={() => handleSquareClick(x, y)}
             >
@@ -756,7 +731,7 @@ const ShogiBoard = () => {
         <button className="float-start bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded" onClick={handleUndo}>Undo</button>
         <button className="float-end bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded" onClick={handleRedo}>Redo</button>
       </div>
-      
+
 
       <div className="captured m-5 w-full">
         <div className="float-start inline-flex flex-row flex-wrap w-1/2">
@@ -769,12 +744,12 @@ const ShogiBoard = () => {
               alt={piece}
               width={30}
               height={30}
-              onClick={(e) =>
+              onClick={(handleDrop) =>
                 handleCapturedPieceSelect(
                   piece,
                   "black",
-                  parseInt(e.currentTarget.dataset.x),
-                  parseInt(e.currentTarget.dataset.y)
+                  parseInt(handleDrop.currentTarget.dataset.x),
+                  parseInt(handleDrop.currentTarget.dataset.y)
                 )
               }
               data-x={Math.floor(Math.random() * 9)}
@@ -792,12 +767,12 @@ const ShogiBoard = () => {
               alt={piece}
               width={30}
               height={30}
-              onClick={(e) =>
+              onClick={(handleDrop) =>
                 handleCapturedPieceSelect(
                   piece,
                   "white",
-                  parseInt(e.currentTarget.dataset.x),
-                  parseInt(e.currentTarget.dataset.y)
+                  parseInt(handleDrop.currentTarget.dataset.x),
+                  parseInt(handleDrop.currentTarget.dataset.y)
                 )
               }
               data-x={Math.floor(Math.random() * 9)}
