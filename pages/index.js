@@ -414,19 +414,6 @@ const ShogiBoard = () => {
   };
 
   const movePiece = (targetX, targetY) => {
-
-    const isMoveSafe = (x, y, targetX, targetY, board, player) => {
-      const simulatedBoard = JSON.parse(JSON.stringify(board)); // Create a deep copy of the board
-      const piece = simulatedBoard[x][y];
-    
-      // Simulate the move
-      simulatedBoard[targetX][targetY] = piece;
-      simulatedBoard[x][y] = " ";
-    
-      // Check if the king is in check after this move
-      return !isInCheck(player, simulatedBoard);
-    };
-    
     if (!selectedPiece || !possibleMoves.some(([px, py]) => px === targetX && py === targetY)) return;
 
     const { x, y, piece } = selectedPiece;
@@ -497,28 +484,22 @@ const ShogiBoard = () => {
   const handleCapturedPieceSelect = (piece, player, targetX, targetY) => {
     if (currentPlayer !== player) return;
     setSelectedPiece({ piece, isCaptured: true, x: targetX, y: targetY });
-    setPossibleMoves(getDropLocations(piece, board));
+    const dropLocations = getDropLocations(piece, board);
+    setPossibleMoves(dropLocations);
   };
 
   const dropCapturedPiece = (targetX, targetY) => {
     if (!selectedPiece || !selectedPiece.isCaptured || !possibleMoves.some(([px, py]) => px === targetX && py === targetY)) return;
-
+  
     const { piece } = selectedPiece;
     const updatedBoard = [...board];
     updatedBoard[targetX][targetY] = currentPlayer === "white" ? piece.toUpperCase() : piece.toLowerCase();
-
-    // Update the captured pieces arrays
-    if (currentPlayer === "white") {
-      setCapturedWhite(capturedWhite.filter((p) => p !== piece.toLowerCase()));
-    } else {
-      setCapturedBlack(capturedBlack.filter((p) => p !== piece.toUpperCase()));
-    }
-
+  
     setBoard(updatedBoard);
     setCurrentPlayer(currentPlayer === "white" ? "black" : "white");
     setSelectedPiece(null);
     setPossibleMoves([]);
-
+  
     // Add the move to the history
     setMoveHistory([...moveHistory.slice(0, undoIndex), { board: updatedBoard, player: currentPlayer }]);
     setUndoIndex(moveHistory.length + 1);
@@ -636,6 +617,9 @@ const ShogiBoard = () => {
       }
     }
 
+    // Display the checkmate result and reset the game
+    alert(`Checkmate! ${player === "white" ? "Black" : "White"} wins.`);
+    resetGame();
     return true;
   }, [board, getPossibleMoves, isInCheck]);
 
@@ -653,6 +637,9 @@ const ShogiBoard = () => {
       }
     }
 
+    // Display the stalemate result and reset the game
+    alert("Stalemate! The game is a draw.");
+    resetGame();
     return true;
   }, [board, getPossibleMoves, isInCheck]);
 
@@ -666,7 +653,7 @@ const ShogiBoard = () => {
       setPossibleMoves([]);
     }
   };
-
+  
   const handleRedo = () => {
     if (undoIndex < moveHistory.length) {
       setUndoIndex(undoIndex + 1);
@@ -677,25 +664,32 @@ const ShogiBoard = () => {
       setPossibleMoves([]);
     }
   };
-
+  
+  const resetGame = () => {
+    setBoard(initialBoard);
+    setCurrentPlayer("white");
+    setSelectedPiece(null);
+    setPossibleMoves([]);
+    setCapturedWhite([]);
+    setCapturedBlack([]);
+    setMoveHistory([]);
+    setUndoIndex(0);
+  };
+  
   useEffect(() => {
-    if (isCheckmate(currentPlayer)) {
-      alert(`Checkmate! ${currentPlayer === "white" ? "White" : "Black"} wins.`);
-      // Reset the game or do any other desired actions
-
-    } else if (isStaleMate(currentPlayer)) {
-      alert("Stalemate! The game is a draw.");
-      // Reset the game or do any other desired actions
+    if (isCheckmate(currentPlayer) || isStaleMate(currentPlayer)) {
+      // Game is over, no need to check further
     }
   }, [currentPlayer, isCheckmate, isStaleMate]);
-
-
+  
   return (
     <div className="container flex flex-col items-center">
       <h1 className="mb-24 text-4xl font-black text-black">
         Current Player: {currentPlayer}
         {isInCheck(currentPlayer) && ` (in check)`}
-      </h1>
+      </h1><button className="mb-5 mx-auto bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded" onClick={resetGame}>
+          Reset
+        </button>
       <div
         className={`board shogi-board ${currentPlayer === "black" ? "rotate-0" : ""
           }`}
@@ -725,14 +719,17 @@ const ShogiBoard = () => {
           ))
         )}
       </div>
-
-
+  
       <div className="controls m-5 w-full mt-24 max-w-72 mx-auto space-x-0 sm:space-x-10 sm:space-y-0">
-        <button className="float-start bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded" onClick={handleUndo}>Undo</button>
-        <button className="float-end bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded" onClick={handleRedo}>Redo</button>
+        <button className="float-start bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded" onClick={handleUndo}>
+          Undo
+        </button>
+        <button className="float-end bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded" onClick={handleRedo}>
+          Redo
+        </button>
+        
       </div>
-
-
+  
       <div className="captured m-5 w-full">
         <div className="float-start inline-flex flex-row flex-wrap w-1/2">
           <h3>Captured by White</h3>
@@ -748,12 +745,12 @@ const ShogiBoard = () => {
                 handleCapturedPieceSelect(
                   piece,
                   "black",
-                  parseInt(handleDrop.currentTarget.dataset.x),
-                  parseInt(handleDrop.currentTarget.dataset.y)
+                  index % 9,
+                  Math.floor(index / 9)
                 )
               }
-              data-x={Math.floor(Math.random() * 9)}
-              data-y={Math.floor(Math.random() * 9)}
+              data-x={index % 9}
+              data-y={Math.floor(index / 9)}
             />
           ))}
         </div>
@@ -771,12 +768,12 @@ const ShogiBoard = () => {
                 handleCapturedPieceSelect(
                   piece,
                   "white",
-                  parseInt(handleDrop.currentTarget.dataset.x),
-                  parseInt(handleDrop.currentTarget.dataset.y)
+                  index % 9,
+                  Math.floor(index / 9)
                 )
               }
-              data-x={Math.floor(Math.random() * 9)}
-              data-y={Math.floor(Math.random() * 9)}
+              data-x={index % 9}
+              data-y={Math.floor(index / 9)}
             />
           ))}
         </div>
