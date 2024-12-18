@@ -1,18 +1,18 @@
 import Image from "next/image";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 
 const ShogiBoard = () => {
   // Initial board setup for Shogi
   const initialBoard = [
-    ["l", "n", "s", "g", "k", "g", "s", "n", "l"], // Row 0: Black back row
-    [" ", "r", " ", " ", " ", " ", " ", "b", " "], // Row 1: Black Rook and Bishop
-    ["p", "p", "p", "p", "p", "p", "p", "p", "p"], // Row 2: Black pawns
+    ["l", "n", "s", "g", "k", "g", "s", "n", "l"], // Row 0: Sente back row
+    [" ", "r", " ", " ", " ", " ", " ", "b", " "], // Row 1: Sente Rook and Bishop
+    ["p", "p", "p", "p", "p", "p", "p", "p", "p"], // Row 2: Sente pawns
     [" ", " ", " ", " ", " ", " ", " ", " ", " "], // Row 3: Empty
     [" ", " ", " ", " ", " ", " ", " ", " ", " "], // Row 4: Empty
     [" ", " ", " ", " ", " ", " ", " ", " ", " "], // Row 5: Empty
-    ["P", "P", "P", "P", "P", "P", "P", "P", "P"], // Row 6: White pawns
-    [" ", "B", " ", " ", " ", " ", " ", "R", " "], // Row 7: White Bishop and Rook
-    ["L", "N", "S", "G", "K", "G", "S", "N", "L"], // Row 8: White back row
+    ["P", "P", "P", "P", "P", "P", "P", "P", "P"], // Row 6: Gote pawns
+    [" ", "B", " ", " ", " ", " ", " ", "R", " "], // Row 7: Gote Bishop and Rook
+    ["L", "N", "S", "G", "K", "G", "S", "N", "L"], // Row 8: Gote back row
   ];
 
   // Mapping of piece types to image paths
@@ -47,10 +47,59 @@ const ShogiBoard = () => {
     K: "/images/pieces/King.svg",
   };
 
+    // State management
+  const [board, setBoard] = useState(initialBoard);
+  const [pieces, setPieces] = useState({});
+  const [currentPlayer, setCurrentPlayer] = useState("gote");
+  const [selectedPiece, setSelectedPiece] = useState(null);
+  const [possibleMoves, setPossibleMoves] = useState([]);
+  const [capturedGote, setCapturedGote] = useState([]);
+  const [capturedSente, setCapturedSente] = useState([]);
+  const [moveHistory, setMoveHistory] = useState([]);
+  const [undoIndex, setUndoIndex] = useState(0);
+
+  const BOARD_SIZE = 9;
+
+    // Populate pieces with initial metadata
+  useEffect(() => {
+    const initializePieces = () => {
+      const initialPieces = {};
+      initialBoard.forEach((row, x) => {
+        row.forEach((piece, y) => {
+          if (piece !== " ") {
+            initialPieces[`${x}-${y}`] = {
+              type: piece,
+              state: "active", // Tracks if piece is "active" or "captured"
+              position: { x, y },
+            };
+          }
+        });
+      });
+      setPieces(initialPieces);
+    };
+    initializePieces();
+  }, []);
+
+  const selectPiece = (x, y) => {
+    const piece = board[x][y];
+    if (
+      piece &&
+      (currentPlayer === "gote"
+        ? piece === piece.toUpperCase()
+        : piece === piece.toLowerCase())
+    ) {
+      setSelectedPiece({ x, y, piece });
+      setPossibleMoves(getPossibleMoves(piece, x, y, board));
+    } else {
+      setSelectedPiece(null);
+      setPossibleMoves([]);
+    }
+  };
+
   const getPossibleMoves = useCallback((piece, x, y, board) => {
     const pieceMovements = {
       p: {
-        normal: [{ x: 0, y: 1 }], // Black Pawn moves forward
+        normal: [{ x: 0, y: 1 }], // Sente Pawn moves forward
         promoted: [
           { x: 0, y: 1 },  // Forward
           { x: 0, y: -1 }, // Backward
@@ -61,7 +110,7 @@ const ShogiBoard = () => {
         ],
       },
       P: {
-        normal: [{ x: 0, y: -1 }], // White Pawn moves forward
+        normal: [{ x: 0, y: -1 }], // Gote Pawn moves forward
         promoted: [
           { x: 0, y: -1 }, // Forward
           { x: 0, y: 1 },  // Backward
@@ -72,7 +121,7 @@ const ShogiBoard = () => {
         ],
       },
       l: {
-        normal: Array.from({ length: 8 }, (_, i) => ({ x: 0, y: -(i + 1) })), // Black Lance moves any number of squares forward
+        normal: Array.from({ length: 8 }, (_, i) => ({ x: 0, y: -(i + 1) })), // Sente Lance moves any number of squares forward
         promoted: [
           { x: 0, y: -1 }, // Backward
           { x: 0, y: 1 },  // Forward
@@ -81,7 +130,7 @@ const ShogiBoard = () => {
         ],
       },
       L: {
-        normal: Array.from({ length: 8 }, (_, i) => ({ x: 0, y: i + 1 })), // White Lance moves any number of squares forward
+        normal: Array.from({ length: 8 }, (_, i) => ({ x: 0, y: i + 1 })), // Gote Lance moves any number of squares forward
         promoted: [
           { x: 0, y: -1 }, // Backward
           { x: 0, y: 1 },  // Forward
@@ -91,7 +140,7 @@ const ShogiBoard = () => {
       },
       n: {
         normal: [
-          { x: 1, y: -2 }, // Black Knight jumps forward
+          { x: 1, y: -2 }, // Sente Knight jumps forward
           { x: -1, y: -2 },
         ],
         promoted: [
@@ -105,7 +154,7 @@ const ShogiBoard = () => {
       },
       N: {
         normal: [
-          { x: 1, y: 2 },  // White Knight jumps forward
+          { x: 1, y: 2 },  // Gote Knight jumps forward
           { x: -1, y: 2 },
         ],
         promoted: [
@@ -222,7 +271,7 @@ const ShogiBoard = () => {
 
     const isPromoted = piece.includes("+");
     const basePiece = piece.replace("+", "").toLowerCase();
-    const isWhite = piece === piece.toUpperCase();
+    const isGote = piece === piece.toUpperCase();
 
     if (!pieceMovements[basePiece]) return [];
 
@@ -237,7 +286,7 @@ const ShogiBoard = () => {
     // Helper function to check if a piece can capture at position
     const canCapture = (newX, newY) => {
       const target = board[newX][newY];
-      return target === " " || (isWhite ? target === target.toLowerCase() : target === target.toUpperCase());
+      return target === " " || (isGote ? target === target.toLowerCase() : target === target.toUpperCase());
     };
 
     // Handle sliding pieces (rook, bishop, lance)
@@ -295,14 +344,14 @@ const ShogiBoard = () => {
         break;
 
       case 'l': // Lance
-        const direction = isWhite ? -1 : 1;
+        const direction = isGote ? -1 : 1;
         handleSlidingMove(x, y, direction, 0);
         break;
 
       case 'n': // Knight
-        const knightMoves = isWhite ?
-          [[-2, -1], [-2, 1]] : // White knight
-          [[2, -1], [2, 1]];    // Black knight
+        const knightMoves = isGote ?
+          [[-2, -1], [-2, 1]] : // Gote knight
+          [[2, -1], [2, 1]];    // Sente knight
 
         knightMoves.forEach(([dx, dy]) => {
           const newX = x + dx;
@@ -314,7 +363,7 @@ const ShogiBoard = () => {
         break;
 
       case 'p': // Pawn
-        const pawnDir = isWhite ? -1 : 1;
+        const pawnDir = isGote ? -1 : 1;
         const newX = x + pawnDir;
         if (isInBounds(newX, y) && canCapture(newX, y)) {
           possibleMoves.push([newX, y]);
@@ -332,7 +381,7 @@ const ShogiBoard = () => {
 
       default: // King, Gold General, Silver General, and promoted pieces
         moveSet.forEach(({ x: dx, y: dy }) => {
-          const newX = x + (isWhite ? -dy : dy); // Adjust for perspective
+          const newX = x + (isGote ? -dy : dy); // Adjust for perspective
           const newY = y + dx;
           if (isInBounds(newX, newY) && canCapture(newX, newY)) {
             possibleMoves.push([newX, newY]);
@@ -344,142 +393,6 @@ const ShogiBoard = () => {
     return possibleMoves;
   }, []);
 
-  // State management
-  const [board, setBoard] = useState(initialBoard);
-  const [pieces, setPieces] = useState({});
-  const [currentPlayer, setCurrentPlayer] = useState("white");
-  const [selectedPiece, setSelectedPiece] = useState(null);
-  const [possibleMoves, setPossibleMoves] = useState([]);
-  const [capturedWhite, setCapturedWhite] = useState([]);
-  const [capturedBlack, setCapturedBlack] = useState([]);
-  const [moveHistory, setMoveHistory] = useState([]);
-  const [undoIndex, setUndoIndex] = useState(0);
-
-  const BOARD_SIZE = 9;
-
-  // Populate pieces with initial metadata
-  useEffect(() => {
-    const initializePieces = () => {
-      const initialPieces = {};
-      initialBoard.forEach((row, x) => {
-        row.forEach((piece, y) => {
-          if (piece !== " ") {
-            initialPieces[`${x}-${y}`] = {
-              type: piece,
-              state: "active", // Tracks if piece is "active" or "captured"
-              position: { x, y },
-            };
-          }
-        });
-      });
-      setPieces(initialPieces);
-    };
-    initializePieces();
-  }, []);
-
-  const capturePiece = (x, y) => {
-    const updatedPieces = { ...pieces };
-    const capturedPieceKey = `${x}-${y}`;
-    const capturedPiece = updatedPieces[capturedPieceKey];
-
-    if (capturedPiece) {
-      capturedPiece.state = "captured";
-      capturedPiece.position = null;
-
-      if (currentPlayer === "white") {
-        setCapturedWhite([...capturedWhite, capturedPiece]);
-      } else {
-        setCapturedBlack([...capturedBlack, capturedPiece]);
-      }
-
-      delete updatedPieces[capturedPieceKey];
-    }
-
-    setPieces(updatedPieces);
-  };
-
-  const dropCapturedPiece = (piece, targetX, targetY) => {
-    if (board[targetX][targetY] !== " ") return;
-
-    const updatedBoard = [...board];
-    updatedBoard[targetX][targetY] = piece.type;
-    setBoard(updatedBoard);
-
-    piece.state = "active";
-    piece.position = { targetX, targetY };
-
-    if (currentPlayer === "white") {
-      setCapturedWhite(capturedWhite.filter((p) => p !== piece));
-    } else {
-      setCapturedBlack(capturedBlack.filter((p) => p !== piece));
-    }
-
-    setCurrentPlayer(currentPlayer === "white" ? "black" : "white");
-    setSelectedPiece(null);
-    setPossibleMoves([]);
-  
-    // Add the move to the history
-    setMoveHistory([...moveHistory.slice(0, undoIndex), { board: updatedBoard, player: currentPlayer }]);
-    setUndoIndex(moveHistory.length + 1);
-  };
-
-  const selectPiece = (x, y) => {
-    const piece = board[x][y];
-    if (piece && (currentPlayer === "white" ? piece === piece.toUpperCase() : piece === piece.toLowerCase())) {
-      setSelectedPiece({ x, y, piece });
-      setPossibleMoves(getPossibleMoves(piece, x, y, board));
-    } else {
-      setSelectedPiece(null);
-      setPossibleMoves([]);
-    }
-  };
-
-  const shouldPromote = (piece, x) => {
-    if (!piece || piece.includes("+")) return false;
-    if (piece.toLowerCase() === 'k' || piece.toLowerCase() === 'g') return false;
-
-    const isWhite = piece === piece.toUpperCase();
-
-    // Mandatory promotion for pawns, lances, and knights in last ranks
-    if (piece.toLowerCase() === 'p' || piece.toLowerCase() === 'l' || piece.toLowerCase() === 'n') {
-      if (isWhite && x === 0) return true;
-      if (!isWhite && x === 8) return true;
-    }
-
-    // Optional promotion in promotion zone
-    return isWhite ? x <= 2 : x >= 6;
-  };
-
-  const [promotedPieces, setPromotedPieces] = useState(new Set());
-
-  const handlePromotion = (piece, x, y, updatedBoard) => {
-    const promotedPiece = piece + "+";
-    updatedBoard[x][y] = promotedPiece;
-    setBoard(updatedBoard);
-  };
-
-  const isValidPawnDrop = (x, y, board) => {
-    for (let row = 0; row < 9; row++) {
-      const cell = board[row][y];
-      if (cell.toLowerCase() === 'p' && (currentPlayer === "white" ? cell === cell.toUpperCase() : cell === cell.toLowerCase())) {
-        return false;
-      }
-    }
-    return !(currentPlayer === "white" && x === 0) && !(currentPlayer === "black" && x === 8);
-  };
-
-  const getDropLocations = (piece, board) => {
-    let moves = [];
-    for (let x = 0; x < 9; x++) {
-      for (let y = 0; y < 9; y++) {
-        if (board[x][y] === " " && (piece.toLowerCase() !== 'p' || isValidPawnDrop(x, y, board))) {
-          moves.push([x, y]);
-        }
-      }
-    }
-    return moves;
-  };
-
   const movePiece = (targetX, targetY) => {
     if (!selectedPiece || !possibleMoves.some(([px, py]) => px === targetX && py === targetY)) return;
   
@@ -490,10 +403,10 @@ const ShogiBoard = () => {
     const capturedPiece = updatedBoard[targetX][targetY];
     if (capturedPiece !== " ") {
       const normalizedPiece = capturedPiece.replace("+", "");
-      if (currentPlayer === "white") {
-        setCapturedWhite([...capturedWhite, normalizedPiece.toLowerCase()]);
+      if (currentPlayer === "gote") {
+        setCapturedGote([...capturedGote, normalizedPiece.toLowerCase()]);
       } else {
-        setCapturedBlack([...capturedBlack, normalizedPiece.toUpperCase()]);
+        setCapturedSente([...capturedSente, normalizedPiece.toUpperCase()]);
       }
       updatedBoard[targetX][targetY] = " ";
     }
@@ -514,7 +427,7 @@ const ShogiBoard = () => {
     }
   
     setBoard(updatedBoard);
-    setCurrentPlayer(currentPlayer === "white" ? "black" : "white");
+    setCurrentPlayer(currentPlayer === "gote" ? "sente" : "gote");
     setSelectedPiece(null);
     setPossibleMoves([]);
   
@@ -524,22 +437,117 @@ const ShogiBoard = () => {
   
     // Check for victory
     if (isVictory()) {
-      alert(`${currentPlayer === "white" ? "Black" : "White"} wins!`);
+      alert(`${currentPlayer === "gote" ? "Sente" : "Gote"} wins!`);
       resetGame();
     }
   };
 
-  const isVictory = () => {
-    const whiteKingPosition = findKingPosition("K");
-    const blackKingPosition = findKingPosition("k");
+  const capturePiece = () => (x, y) => {
+    const updatedPieces = { ...pieces };
+    const capturedPieceKey = `${x}-${y}`;
+    const capturedPiece = updatedPieces[capturedPieceKey];
+
+    if (capturedPiece) {
+      capturedPiece.state = "captured";
+      capturedPiece.position = null;
+
+      if (currentPlayer === "gote") {
+        setCapturedGote([...capturedGote, capturedPiece]);
+      } else {
+        setCapturedSente([...capturedSente, capturedPiece]);
+      }
+
+      delete updatedPieces[capturedPieceKey];
+    }
+
+    setPieces(updatedPieces);
+  };
+
+  const dropCapturedPiece = (piece, targetX, targetY) => {
+    if (board[targetX][targetY] !== " ") return;
+
+    const updatedBoard = [...board];
+    updatedBoard[targetX][targetY] = piece.type;
+    setBoard(updatedBoard);
+
+    piece.state = "active";
+    piece.position = { targetX, targetY };
+
+    if (currentPlayer === "gote") {
+      setCapturedGote(capturedGote.filter((p) => p !== piece));
+    } else {
+      setCapturedSente(capturedSente.filter((p) => p !== piece));
+    }
+
+    setCurrentPlayer(currentPlayer === "gote" ? "sente" : "gote");
+    setSelectedPiece(null);
+    setPossibleMoves([]);
   
-    return !whiteKingPosition || !blackKingPosition; // Game over if either king is missing
+    // Add the move to the history
+    setMoveHistory([...moveHistory.slice(0, undoIndex), { board: updatedBoard, player: currentPlayer }]);
+    setUndoIndex(moveHistory.length + 1);
+  };
+
+
+  const shouldPromote = (piece, x) => {
+    if (!piece || piece.includes("+")) return false;
+    if (piece.toLowerCase() === 'k' || piece.toLowerCase() === 'g') return false;
+
+    const isGote = piece === piece.toUpperCase();
+
+    // Mandatory promotion for pawns, lances, and knights in last ranks
+    if (piece.toLowerCase() === 'p' || piece.toLowerCase() === 'l' || piece.toLowerCase() === 'n') {
+      if (isGote && x === 0) return true;
+      if (!isGote && x === 8) return true;
+    }
+
+    // Optional promotion in promotion zone
+    return isGote ? x <= 2 : x >= 6;
+  };
+
+  const [promotedPieces, setPromotedPieces] = useState(new Set());
+
+  const handlePromotion = () => (piece, x, y, updatedBoard) => {
+    const promotedPiece = piece + "+";
+    updatedBoard[x][y] = promotedPiece;
+    setBoard(updatedBoard);
+  };
+
+  const isValidPawnDrop = (x, y, board) => {
+    for (let row = 0; row < 9; row++) {
+      const cell = board[row][y];
+      if (cell.toLowerCase() === 'p' && (currentPlayer === "gote" ? cell === cell.toUpperCase() : cell === cell.toLowerCase())) {
+        return false;
+      }
+    }
+    return !(currentPlayer === "gote" && x === 0) && !(currentPlayer === "sente" && x === 8);
+  };
+
+  const getDropLocations = (piece, board) => {
+    let moves = [];
+    for (let x = 0; x < 9; x++) {
+      for (let y = 0; y < 9; y++) {
+        if (board[x][y] === " " && (piece.toLowerCase() !== 'p' || isValidPawnDrop(x, y, board))) {
+          moves.push([x, y]);
+        }
+      }
+    }
+    return moves;
+  };
+
+
+
+  const isVictory = () => {
+    const goteKingPosition = findKingPosition("K");
+    const senteKingPosition = findKingPosition("k");
+  
+    return !goteKingPosition || !senteKingPosition; // Game over if either king is missing
   };
 
   const handleSquareClick = (x, y) => {
     const piece = board[x][y];
-    const isWhitePiece = piece === piece.toUpperCase();
-    const isBlackPiece = piece !== " " && piece === piece.toLowerCase();
+    const isGotePiece = piece === piece.toUpperCase();
+    const isSentePiece = piece !== " " && piece === piece.toLowerCase();
   
     // Handle dropping a captured piece
     if (selectedPiece?.isCaptured) {
@@ -562,11 +570,11 @@ const ShogiBoard = () => {
       } else if (possibleMoves.some(([px, py]) => px === x && py === y)) {
         const capturedPiece = board[x][y];
         movePiece(x, y);
-        if (capturedPiece === (currentPlayer === "white" ? "k" : "K")) {
-          alert(`${currentPlayer === "black" ? "Black" : "White"} wins!`);
+        if (capturedPiece === (currentPlayer === "gote" ? "k" : "K")) {
+          alert(`${currentPlayer === "sente" ? "Sente" : "Gote"} wins!`);
           resetGame(); // Reset game after a king is captured
         }
-      } else if (piece !== " " && ((currentPlayer === "white" && isWhitePiece) || (currentPlayer === "black" && isBlackPiece))) {
+      } else if (piece !== " " && ((currentPlayer === "gote" && isGotePiece) || (currentPlayer === "sente" && isSentePiece))) {
         // Select a new piece if clicked on another piece of the same player
         selectPiece(x, y);
       } else {
@@ -579,7 +587,7 @@ const ShogiBoard = () => {
     // Handle selecting a new piece from the board
     if (
       piece !== " " &&
-      ((currentPlayer === "white" && isWhitePiece) || (currentPlayer === "black" && isBlackPiece))
+      ((currentPlayer === "gote" && isGotePiece) || (currentPlayer === "sente" && isSentePiece))
     ) {
       if (isInCheck(currentPlayer) && piece.toLowerCase() !== "k") {
         // Only allow moving the king if the current player is in check
@@ -595,67 +603,42 @@ const ShogiBoard = () => {
   const handleDropCapturedPiece = (piece, targetX, targetY) => {
     // Ensure the target square is empty
     if (board[targetX][targetY] !== " ") return;
-  
+    if (!selectedPiece || !selectedPiece.isCaptured || !possibleMoves.some(([px, py]) => px === targetX && py === targetY)) return;
     // Validate that only the current player can drop their respective captured pieces
     if (
-      (currentPlayer === "white" && !capturedWhite.includes(piece)) ||
-      (currentPlayer === "black" && !capturedBlack.includes(piece))
+      (currentPlayer === "gote" && !capturedGote.includes(piece)) ||
+      (currentPlayer === "sente" && !capturedSente.includes(piece))
     ) {
-      alert("You can only drop your own captured pieces!");
+      alert("You can only drop the captured pieces you have taken from your opponent!");
       return;
     }
   
     // Validate pawn-specific rules for illegal drop zones
     if (piece.toLowerCase() === "p" && !isValidPawnDrop(targetX, targetY, board)) {
-      alert("Invalid pawn drop!");
+      alert("Invalid pawn drop - cannot be dropped in the same row that is currently occupied by a pawn!");
       return;
     }
   
     // Create a new board state with the piece dropped
     const updatedBoard = [...board];
     updatedBoard[targetX][targetY] =
-      currentPlayer === "white" ? piece.toUpperCase() : piece.toLowerCase();
+      currentPlayer === "gote" ? piece.toUpperCase() : piece.toLowerCase();
     setBoard(updatedBoard);
   
     // Remove the dropped piece from the respective captured pieces list
-    if (currentPlayer === "white") {
-      const updatedCapturedWhite = capturedWhite.filter((p) => p !== piece);
-      setCapturedWhite(updatedCapturedWhite);
+    if (currentPlayer === "gote") {
+      const updatedCapturedGote = capturedGote.filter((p) => p !== piece);
+      setCapturedGote(updatedCapturedGote);
     } else {
-      const updatedCapturedBlack = capturedBlack.filter((p) => p !== piece);
-      setCapturedBlack(updatedCapturedBlack);
+      const updatedCapturedSente = capturedSente.filter((p) => p !== piece);
+      setCapturedSente(updatedCapturedSente);
     }
   
     // Switch the current player to the other player
-    setCurrentPlayer(currentPlayer === "white" ? "black" : "white");
+    setCurrentPlayer(currentPlayer === "gote" ? "sente" : "gote");
     setSelectedPiece(null);
     setPossibleMoves([]);
-  };
-  
-  
-  
-
-  const handleDrop = (targetX, targetY) => {
-    if (!selectedPiece || !selectedPiece.isCaptured || !possibleMoves.some(([px, py]) => px === targetX && py === targetY)) return;
-
-    const { piece, isCaptured } = selectedPiece;
-    const updatedBoard = [...board];
-    updatedBoard[targetX][targetY] = currentPlayer === "white" ? piece.toUpperCase() : piece.toLowerCase();
-
-    // Update the captured pieces arrays
-    if (isCaptured) {
-      if (currentPlayer === "white") {
-        setCapturedWhite(capturedWhite.filter((p) => p !== piece.toLowerCase()));
-      } else {
-        setCapturedBlack(capturedBlack.filter((p) => p !== piece.toUpperCase()));
-      }
-    }
-
-    setBoard(updatedBoard);
-    setCurrentPlayer(currentPlayer === "white" ? "black" : "white");
-    setSelectedPiece(null);
-    setPossibleMoves([]);
-
+    
     // Add the move to the history
     setMoveHistory([...moveHistory.slice(0, undoIndex), { board: updatedBoard, player: currentPlayer }]);
     setUndoIndex(moveHistory.length + 1);
@@ -673,7 +656,7 @@ const ShogiBoard = () => {
   }, [board]);
 
   const isInCheck = useCallback((player) => {
-    const kingPosition = player === "white" ? findKingPosition("K") : findKingPosition("k");
+    const kingPosition = player === "gote" ? findKingPosition("K") : findKingPosition("k");
     if (!kingPosition) return true; // King is missing, player is in check.
   
     const [kingX, kingY] = kingPosition;
@@ -682,7 +665,7 @@ const ShogiBoard = () => {
     for (let i = 0; i < 9; i++) {
       for (let j = 0; j < 9; j++) {
         const piece = board[i][j];
-        if (piece !== " " && (player === "white" ? piece === piece.toLowerCase() : piece === piece.toUpperCase())) {
+        if (piece !== " " && (player === "gote" ? piece === piece.toLowerCase() : piece === piece.toUpperCase())) {
           const moves = getPossibleMoves(piece, i, j, board);
           if (moves.some(([px, py]) => px === kingX && py === kingY)) {
             return true; // King is under attack
@@ -698,7 +681,7 @@ const ShogiBoard = () => {
 
     for (let x = 0; x < 9; x++) {
       for (let y = 0; y < 9; y++) {
-        if (board[x][y] !== " " && (player === "white" ? board[x][y] === board[x][y].toUpperCase() : board[x][y] === board[x][y].toLowerCase())) {
+        if (board[x][y] !== " " && (player === "gote" ? board[x][y] === board[x][y].toUpperCase() : board[x][y] === board[x][y].toLowerCase())) {
           const moves = getPossibleMoves(board[x][y], x, y, board);
           if (moves.length > 0) {
             return false;
@@ -708,8 +691,8 @@ const ShogiBoard = () => {
     }
 
     // Display the checkmate result and reset the game
-    alert(`Checkmate! ${player === "white" ? "Black" : "White"} wins.`);
-    resetGame();
+    alert(`Checkmate! ${player === "gote" ? "Sente" : "Gote"} wins.`);
+    
     return true;
   }, [board, getPossibleMoves, isInCheck]);
 
@@ -718,7 +701,7 @@ const ShogiBoard = () => {
 
     for (let x = 0; x < 9; x++) {
       for (let y = 0; y < 9; y++) {
-        if (board[x][y] !== " " && (player === "white" ? board[x][y] === board[x][y].toUpperCase() : board[x][y] === board[x][y].toLowerCase())) {
+        if (board[x][y] !== " " && (player === "gote" ? board[x][y] === board[x][y].toUpperCase() : board[x][y] === board[x][y].toLowerCase())) {
           const moves = getPossibleMoves(board[x][y], x, y, board);
           if (moves.length > 0) {
             return false;
@@ -726,10 +709,8 @@ const ShogiBoard = () => {
         }
       }
     }
-
     // Display the stalemate result and reset the game
     alert("Stalemate! The game is a draw.");
-    resetGame();
     return true;
   }, [board, getPossibleMoves, isInCheck]);
 
@@ -757,11 +738,11 @@ const ShogiBoard = () => {
   
   const resetGame = () => {
     setBoard(initialBoard);
-    setCurrentPlayer("white");
+    setCurrentPlayer("gote");
     setSelectedPiece(null);
     setPossibleMoves([]);
-    setCapturedWhite([]);
-    setCapturedBlack([]);
+    setCapturedGote([]);
+    setCapturedSente([]);
     setMoveHistory([]);
     setUndoIndex(0);
   };
@@ -774,12 +755,12 @@ const ShogiBoard = () => {
   
   return (
     <div className="container flex flex-col items-center">
-      <h1 className="mb-24 text-4xl font-black text-black">
+      <h1 className="mb-24 text-4xl font-sente text-sente">
         Current Player: {currentPlayer}
         {isInCheck(currentPlayer) && ` (in check)`}
       </h1>
       <button
-        className="mb-5 mx-auto bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+        className="mb-5 mx-auto bg-blue-500 hover:bg-blue-700 text-gote font-bold py-2 px-4 rounded"
         onClick={resetGame}
       >
         Reset
@@ -787,7 +768,7 @@ const ShogiBoard = () => {
   
       <div
         className={`board shogi-board ${
-          currentPlayer === "black" ? "rotate-0" : ""
+          currentPlayer === "sente" ? "rotate-0" : ""
         }`}
       >
         {board.map((row, x) =>
@@ -820,13 +801,13 @@ const ShogiBoard = () => {
   
       <div className="controls m-5 w-full mt-24 max-w-72 mx-auto space-x-0 sm:space-x-10 sm:space-y-0">
         <button
-          className="float-start bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+          className="float-start bg-blue-500 hover:bg-blue-700 text-gote font-bold py-2 px-4 rounded"
           onClick={handleUndo}
         >
           Undo
         </button>
         <button
-          className="float-end bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+          className="float-end bg-blue-500 hover:bg-blue-700 text-gote font-bold py-2 px-4 rounded"
           onClick={handleRedo}
         >
           Redo
@@ -835,8 +816,8 @@ const ShogiBoard = () => {
   
       <div className="captured m-5 w-full">
   <div className="float-start inline-flex flex-row flex-wrap w-1/2">
-    <h3>Captured by White</h3>
-    {capturedWhite.map((piece, index) => (
+    <h3>Captured by Gote</h3>
+    {capturedGote.map((piece, targetX, targetY, index) => (
       <Image
         className={`object-center object-scale-down w-auto h-auto cursor-pointer ${
           selectedPiece?.piece === piece ? "selected" : ""
@@ -853,14 +834,15 @@ const ShogiBoard = () => {
           } else {
             setSelectedPiece({ piece, isCaptured: true });
             setPossibleMoves(getDropLocations(piece, board));
+            handleDropCapturedPiece(piece, targetX, targetY)
           }
         }}
       />
     ))}
   </div>
   <div className="float-end inline-flex flex-row-reverse flex-wrap w-1/2">
-    <h3>Captured by Black</h3>
-    {capturedBlack.map((piece, index) => (
+    <h3>Captured by Sente</h3>
+    {capturedSente.map((piece, targetX, targetY, index) => (
       <Image
         className={`object-center object-scale-down w-auto h-auto cursor-pointer ${
           selectedPiece?.piece === piece ? "selected" : ""
@@ -877,6 +859,7 @@ const ShogiBoard = () => {
           } else {
             setSelectedPiece({ piece, isCaptured: true });
             setPossibleMoves(getDropLocations(piece, board));
+            handleDropCapturedPiece(piece, targetX, targetY);
           }
         }}
       />

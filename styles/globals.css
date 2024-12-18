@@ -88,7 +88,7 @@ button {
 }
 
 #player-captured, #opponent-captured {
-  margin: 10px;
+  margin: 20px;
   font-size: 18px;
 }
 
@@ -118,7 +118,3 @@ button {
   background-color: #b8e994; /* Highlighted square style */
 }
 
-.selected {
-  outline: 2px solid blue;
-  border-radius: 5px;
-}
