@@ -46,7 +46,7 @@ const ShogiBoard = () => {
 
   const BOARD_SIZE = 9;
 
-    // Populate pieces with initial metadata
+  // Populate pieces with initial metadata
   useRef(() => {
     const initializePieces = () => {
       const initialPieces = {};
@@ -70,7 +70,7 @@ const ShogiBoard = () => {
   const selectPiece = (x, y) => {
     const piece = board[x][y];
     const isCurrentPlayerPiece = currentPlayer === "gote" ? piece === piece.toUpperCase() : piece === piece.toLowerCase();
-    
+
     if (piece && isCurrentPlayerPiece) {
       setSelectedPiece({ x, y, piece });
       setPossibleMoves(getPossibleMoves(piece, x, y, board));
@@ -88,123 +88,129 @@ const ShogiBoard = () => {
 
     const pieceMovements = {
       p: {
-        normal: [{ x: 0, y: 1 }], // Sente Pawn moves forward
+        normal: [{ x: 0, y: -1 }], // Sente Pawn moves forward
         promoted: [
-          { x: 0, y: 1 },  // Forward
-          { x: 0, y: -1 }, // Backward
-          { x: 1, y: 0 },  // Right
-          { x: -1, y: 0 }, // Left
-          { x: 1, y: 1 },  // Diagonal forward-right
-          { x: -1, y: 1 }, // Diagonal forward-left
+          { x: 0, y: -1 }, // Up 1
+          { x: 0, y: 1 }, // Back 1
+          { x: -1, y: 0 }, // Right 1
+          { x: 1, y: 0 }, // Left 1
+          { x: -1, y: -1 }, // Right Diagonal 1
+          { x: 1, y: -1 }, // Left Diagonal 1
         ],
       },
       P: {
-        normal: [{ x: 0, y: -1 }], // Gote Pawn moves forward
+        normal: [{ x: 0, y: 1 }], // Gote Pawn moves forward
         promoted: [
-          { x: 0, y: -1 }, // Forward
-          { x: 0, y: 1 },  // Backward
-          { x: 1, y: 0 },  // Right
-          { x: -1, y: 0 }, // Left
-          { x: 1, y: -1 }, // Diagonal forward-right
-          { x: -1, y: -1 }, // Diagonal forward-left
+          { x: 0, y: 1 }, // Up 1
+          { x: 0, y: -1 }, // Back 1
+          { x: 1, y: 0 }, // Right 1
+          { x: -1, y: 0 }, // Left 1
+          { x: 1, y: 1 }, // Right Diagonal 1
+          { x: -1, y: 1 }, // Left Diagonal 1
         ],
       },
       l: {
         normal: Array.from({ length: 8 }, (_, i) => ({ x: 0, y: -(i + 1) })), // Sente Lance moves any number of squares forward
         promoted: [
-          { x: 0, y: -1 }, // Backward
-          { x: 0, y: 1 },  // Forward
-          { x: 1, y: 0 },  // Right
-          { x: -1, y: 0 }, // Left
+          { x: 0, y: -1 }, // Up 1
+          { x: 0, y: 1 }, // Back 1
+          { x: -1, y: 0 }, // Right 1
+          { x: 1, y: 0 }, // Left 1
+          { x: -1, y: -1 }, // Right Diagonal 1
+          { x: 1, y: -1 }, // Left Diagonal 1
         ],
       },
       L: {
         normal: Array.from({ length: 8 }, (_, i) => ({ x: 0, y: i + 1 })), // Gote Lance moves any number of squares forward
         promoted: [
-          { x: 0, y: -1 }, // Backward
-          { x: 0, y: 1 },  // Forward
-          { x: 1, y: 0 },  // Right
-          { x: -1, y: 0 }, // Left
+          { x: 0, y: 1 }, // Up 1
+          { x: 0, y: -1 }, // Back 1
+          { x: 1, y: 0 }, // Right 1
+          { x: -1, y: 0 }, // Left 1
+          { x: 1, y: 1 }, // Right Diagonal 1
+          { x: -1, y: 1 }, // Left Diagonal 1
         ],
       },
       n: {
         normal: [
-          { x: 1, y: -2 }, // Sente Knight jumps forward
-          { x: -1, y: -2 },
+          { x: -1, y: -2 }, // Forward Right
+          { x: 1, y: -2 }, // Forward Left
         ],
         promoted: [
-          { x: 0, y: -1 }, // Backward
-          { x: 0, y: 1 },  // Forward
-          { x: 1, y: 0 },  // Right
-          { x: -1, y: 0 }, // Left
-          { x: 1, y: -1 }, // Diagonal backward-right
-          { x: -1, y: -1 }, // Diagonal backward-left
+          { x: 0, y: -1 }, // Up 1
+          { x: 0, y: 1 }, // Back 1
+          { x: -1, y: 0 }, // Right 1
+          { x: 1, y: 0 }, // Left 1
+          { x: -1, y: -1 }, // Right Diagonal 1
+          { x: 1, y: -1 }, // Left Diagonal 1
         ],
       },
       N: {
         normal: [
-          { x: 1, y: 2 },  // Gote Knight jumps forward
-          { x: -1, y: 2 },
+          { x: 1, y: 2 },  // Forward Right
+          { x: -1, y: 2 }, // Forward Left
         ],
         promoted: [
-          { x: 0, y: 1 },  // Forward
-          { x: 0, y: -1 }, // Backward
-          { x: 1, y: 0 },  // Right
-          { x: -1, y: 0 }, // Left
-          { x: 1, y: 1 },  // Forward-right diagonal
-          { x: -1, y: 1 }, // Forward-left diagonal
-          { x: 1, y: -1 }, // Backward-right diagonal
-          { x: -1, y: -1 }, // Backward-left diagonal
+          { x: 0, y: 1 }, // Up 1
+          { x: 0, y: -1 }, // Back 1
+          { x: 1, y: 0 }, // Right 1
+          { x: -1, y: 0 }, // Left 1
+          { x: 1, y: 1 }, // Right Diagonal 1
+          { x: -1, y: 1 }, // Left Diagonal 1
         ],
       },
       s: {
         normal: [
-          { x: 0, y: 1 },  // Forward
-          { x: 1, y: 1 },  // Forward-right
-          { x: -1, y: 1 }, // Forward-left
-          { x: 1, y: -1 }, // Backward-right
-          { x: -1, y: -1 } // Backward-left
+          { x: 0, y: -1 }, // Up 1
+          { x: -1, y: -1 }, // Up Right Diagonal 1
+          { x: 1, y: 1 }, // Up Left Diagonal 1
+          { x: -1, y: 1 }, // Back Right Diagonal 1
+          { x: 1, y: 1 }, // Back Left Diagonal 1
         ],
         promoted: [
-          { x: 0, y: 1 },
-          { x: 0, y: -1 },
-          { x: 1, y: 0 },
-          { x: -1, y: 0 },
+          { x: 0, y: -1 }, // Up 1
+          { x: 0, y: 1 }, // Back 1
+          { x: -1, y: 0 }, // Right 1
+          { x: 1, y: 0 }, // Left 1
+          { x: -1, y: -1 }, // Right Diagonal 1
+          { x: 1, y: -1 }, // Left Diagonal 1
         ],
       },
       S: {
         normal: [
-          { x: 0, y: -1 },
-          { x: 1, y: -1 },
-          { x: -1, y: -1 },
-          { x: 1, y: 1 },
-          { x: -1, y: 1 },
+          { x: 0, y: 1 }, // Up 1
+          { x: 1, y: 1 }, // Up Right Diagonal 1
+          { x: -1, y: 1 }, // Up Left Diagonal 1
+          { x: 1, y: -1 }, // Back Right Diagonal 1
+          { x: -1, y: -1 }, // Back Left Diagonal 1
         ],
         promoted: [
-          { x: 0, y: 1 },
-          { x: 0, y: -1 },
-          { x: 1, y: 0 },
-          { x: -1, y: 0 },
+          { x: 0, y: 1 }, // Up 1
+          { x: 0, y: -1 }, // Back 1
+          { x: 1, y: 0 }, // Right 1
+          { x: -1, y: 0 }, // Left 1
+          { x: 1, y: 1 }, // Right Diagonal 1
+          { x: -1, y: 1 }, // Left Diagonal 1
         ],
       },
       g: {
         normal: [
-          { x: 0, y: 1 },
-          { x: 0, y: -1 },
-          { x: 1, y: 0 },
-          { x: -1, y: 0 },
-          { x: 1, y: 1 },
-          { x: -1, y: 1 },
+          { x: 0, y: -1 }, // Up 1
+          { x: 0, y: 1 }, // Back 1
+          { x: -1, y: 0 }, // Right 1
+          { x: 1, y: 0 }, // Left 1
+          { x: -1, y: -1 }, // Right Diagonal 1
+          { x: 1, y: -1 }, // Left Diagonal 1
         ],
       },
       G: {
         normal: [
-          { x: 0, y: 1 },
-          { x: 0, y: -1 },
-          { x: 1, y: 0 },
-          { x: -1, y: 0 },
-          { x: 1, y: 1 },
-          { x: -1, y: 1 },
+          { x: 0, y: 1 }, // Up 1
+          { x: 0, y: -1 }, // Back 1
+          { x: 1, y: 0 }, // Right 1
+          { x: -1, y: 0 }, // Left 1
+          { x: 1, y: 1 }, // Right Diagonal 1
+          { x: -1, y: 1 }, // Left Diagonal 1
         ],
       },
       b: {
@@ -312,13 +318,13 @@ const ShogiBoard = () => {
     };
 
     // Initialize moveSet before using
-  const moveSet = isPromoted 
-  ? pieceMovements[basePiece]?.promoted || pieceMovements[basePiece]?.normal 
-  : pieceMovements[basePiece]?.normal;
+    const moveSet = isPromoted
+      ? pieceMovements[basePiece]?.promoted || pieceMovements[basePiece]?.normal
+      : pieceMovements[basePiece]?.normal;
 
-const possibleMoves = [];
+    const possibleMoves = [];
 
-   // Handle sliding pieces (rook, bishop, lance)
+    // Handle sliding pieces (rook, bishop, lance)
     const handleSlidingMove = (startX, startY, dx, dy) => {
       let newX = startX + dx;
       let newY = startY + dy;
@@ -337,7 +343,7 @@ const possibleMoves = [];
         newY += dy;
       }
     };
-  
+
 
     // Check each possible move based on piece type
     switch (basePiece) {
@@ -392,46 +398,32 @@ const possibleMoves = [];
         });
         break;
 
-      case 'p': // Pawn
-        const pawnDir = isGote ? -1 : 1;
-        const newX = x + pawnDir;
-        if (isInBounds(newX, y) && canCapture(newX, y)) {
-          possibleMoves.push([newX, y]);
-        }
-        if (isPromoted) {
-          [[0, 1], [0, -1], [1, 0], [-1, 0]].forEach(([dx, dy]) => {
-            const newX = x + dx;
-            const newY = y + dy;
-            if (isInBounds(newX, newY) && canCapture(newX, newY)) {
-              possibleMoves.push([newX, newY]);
-            }
-          });
-        }
-        break;
 
-        default: // For non-sliding pieces like King, Gold, Silver, etc.
+
+
+      default: // For non-sliding pieces like King, Gold, Silver, etc.
         if (moveSet && Array.isArray(moveSet)) {
           moveSet.forEach(({ x: dx, y: dy }) => {
-            const newX = x + (isGote ? -dy : dy);  // Adjust for player perspective
+            const newX = x + (isGote ? dy : -dy);  // Adjust for player perspective
             const newY = y + dx;
             if (isInBounds(newX, newY) && canCapture(newX, newY)) {
               possibleMoves.push([newX, newY]);
             }
           });
-        } 
+        }
         break;
     }
-  
+
     return possibleMoves;
-  }, [board]);
+  }, []);
 
 
   const movePiece = (targetX, targetY) => {
     if (!selectedPiece || !possibleMoves.some(([px, py]) => px === targetX && py === targetY)) return;
-  
+
     const { x, y, piece } = selectedPiece;
     const updatedBoard = JSON.parse(JSON.stringify(board)); // Deep copy
-  
+
     // Capture handling
     const capturedPiece = updatedBoard[targetX][targetY];
     if (capturedPiece !== " ") {
@@ -442,10 +434,10 @@ const possibleMoves = [];
         setCapturedSente([...capturedSente, normalizedPiece.toUpperCase()]);
       }
     }
-  
+
     // Clear original position
     updatedBoard[x][y] = " ";
-  
+
     // Handle promotion logic
     if (shouldPromote(piece, targetX)) {
       const promotionChoice = window.confirm("Do you want to promote this piece?");
@@ -471,81 +463,81 @@ const possibleMoves = [];
     }
   };
 
-// Determine if a piece should promote based on its type and position
-const shouldPromote = (piece, x) => {
-  if (!piece || piece.includes("+")) return false; // Already promoted
-  if (piece.toLowerCase() === 'k' || piece.toLowerCase() === 'g') return false; // Kings and Gold Generals don't promote
+  // Determine if a piece should promote based on its type and position
+  const shouldPromote = (piece, x) => {
+    if (!piece || piece.includes("+")) return false; // Already promoted
+    if (piece.toLowerCase() === 'k' || piece.toLowerCase() === 'g') return false; // Kings and Gold Generals don't promote
 
-  const isGote = piece === piece.toUpperCase();
+    const isGote = piece === piece.toUpperCase();
 
-  // Mandatory promotion for Pawns, Lances, and Knights when reaching last ranks
-  if (['p', 'l', 'n'].includes(piece.toLowerCase())) {
-    if ((isGote && x === 0) || (!isGote && x === 8)) return true;
-  }
+    // Mandatory promotion for Pawns, Lances, and Knights when reaching last ranks
+    if (['p', 'l', 'n'].includes(piece.toLowerCase())) {
+      if ((isGote && x === 0) || (!isGote && x === 8)) return true;
+    }
 
-  // Optional promotion when entering the promotion zone (3 farthest ranks)
-  return isGote ? x <= 2 : x >= 6;
-};
+    // Optional promotion when entering the promotion zone (3 farthest ranks)
+    return isGote ? x <= 2 : x >= 6;
+  };
 
-// Function to check if the current player is in check
-const isInCheck = (player, tempBoard = board) => {
-  const kingPiece = player === "gote" ? "K" : "k";
-  const kingPosition = findKingPosition(kingPiece, tempBoard);
+  // Function to check if the current player is in check
+  const isInCheck = (player, tempBoard = board) => {
+    const kingPiece = player === "gote" ? "K" : "k";
+    const kingPosition = findKingPosition(kingPiece, tempBoard);
 
-  if (!kingPosition) {
-    // King is missing from the board, which means the game is technically over
-    return true;
-  }
+    if (!kingPosition) {
+      // King is missing from the board, which means the game is technically over
+      return true;
+    }
 
-  const [kingX, kingY] = kingPosition;
+    const [kingX, kingY] = kingPosition;
 
-  // Loop through opponent's pieces to see if any threaten the king
-  for (let i = 0; i < 9; i++) {
-    for (let j = 0; j < 9; j++) {
-      const piece = tempBoard[i][j];
-      if (piece && (player === "gote" ? piece === piece.toLowerCase() : piece === piece.toUpperCase())) {
-        const moves = getPossibleMoves(piece, i, j, tempBoard);
-        if (moves.some(([px, py]) => px === kingX && py === kingY)) {
-          return true;  // King is in check
+    // Loop through opponent's pieces to see if any threaten the king
+    for (let i = 0; i < 9; i++) {
+      for (let j = 0; j < 9; j++) {
+        const piece = tempBoard[i][j];
+        if (piece && (player === "gote" ? piece === piece.toLowerCase() : piece === piece.toUpperCase())) {
+          const moves = getPossibleMoves(piece, i, j, tempBoard);
+          if (moves.some(([px, py]) => px === kingX && py === kingY)) {
+            return true;  // King is in check
+          }
         }
       }
     }
-  }
-  return false;  // King is safe
-};
+    return false;  // King is safe
+  };
 
 
-// Find the king's position on the board
-const findKingPosition = (kingPiece, tempBoard = board) => {
-  for (let i = 0; i < 9; i++) {
-    for (let j = 0; j < 9; j++) {
-      if (tempBoard[i][j] === kingPiece) {
-        return [i, j];  // Return the position as an array when found
+  // Find the king's position on the board
+  const findKingPosition = (kingPiece, tempBoard = board) => {
+    for (let i = 0; i < 9; i++) {
+      for (let j = 0; j < 9; j++) {
+        if (tempBoard[i][j] === kingPiece) {
+          return [i, j];  // Return the position as an array when found
+        }
       }
     }
-  }
-  return null;  // Explicitly return null if the king isn't found
-};
+    return null;  // Explicitly return null if the king isn't found
+  };
 
 
 
-// Check if the current player has achieved victory (opponent's king captured)
-const isVictory = () => {
-  const goteKingPosition = findKingPosition("K");
-  const senteKingPosition = findKingPosition("k");
+  // Check if the current player has achieved victory (opponent's king captured)
+  const isVictory = () => {
+    const goteKingPosition = findKingPosition("K");
+    const senteKingPosition = findKingPosition("k");
 
-  // Check if either king is missing
-  if (!goteKingPosition) {
-    alert("Sente wins! Gote's king is missing.");
-    return true; // Game over, Gote's king is missing
-  }
-  if (!senteKingPosition) {
-    alert("Gote wins! Sente's king is missing.");
-    return true; // Game over, Sente's king is missing
-  }
+    // Check if either king is missing
+    if (!goteKingPosition) {
+      alert("Sente wins! Gote's king is missing.");
+      return true; // Game over, Gote's king is missing
+    }
+    if (!senteKingPosition) {
+      alert("Gote wins! Sente's king is missing.");
+      return true; // Game over, Sente's king is missing
+    }
 
-  return false; // Both kings are present, game continues
-};
+    return false; // Both kings are present, game continues
+  };
 
 
   // Check for checkmate by seeing if the player has any legal moves left
@@ -570,8 +562,8 @@ const isVictory = () => {
     return true;
   };
 
-   // Check for stalemate (no legal moves, but not in check)
-   const isStalemate = (player) => {
+  // Check for stalemate (no legal moves, but not in check)
+  const isStalemate = (player) => {
     if (isInCheck(player)) return false; // Can't be stalemate if in check
 
     // Check if any legal moves are available
@@ -592,41 +584,41 @@ const isVictory = () => {
     return true;
   };
 
-    // Check for checkmate or stalemate after every turn
-    useEffect(() => {
-      if (isCheckmate(currentPlayer) || isStalemate(currentPlayer)) {
-        // Game is over
-      }
-    }, [currentPlayer, isCheckmate, isStalemate]);
+  // Check for checkmate or stalemate after every turn
+  useEffect(() => {
+    if (isCheckmate(currentPlayer) || isStalemate(currentPlayer)) {
+      // Game is over
+    }
+  }, [currentPlayer, isCheckmate, isStalemate]);
 
-    // Function to handle dropping a captured piece onto the board
-    const handleDropCapturedPiece = (piece, targetX, targetY) => {
-      if (board[targetX][targetY] !== " ") return; // Ensure target square is empty
-    
-      // Ensure only captured pieces can be dropped by the correct player
-      const playerCapturedPieces = currentPlayer === "gote" ? capturedGote : capturedSente;
-      if (!playerCapturedPieces.includes(piece)) {
-        alert("Invalid drop: You can only drop pieces you've captured.");
-        return;
-      }
-    
-      // Drop the piece on the board
-      const updatedBoard = board.map(row => [...row]);
-      updatedBoard[targetX][targetY] = currentPlayer === "gote" ? piece.toUpperCase() : piece.toLowerCase();
-      setBoard(updatedBoard);
-    
-      // Remove only the selected dropped piece from captured list
-      const updatedCapturedPieces = playerCapturedPieces.slice();
-      const pieceIndex = updatedCapturedPieces.indexOf(piece);
-      if (pieceIndex > -1) {
-        updatedCapturedPieces.splice(pieceIndex, 1); // Remove the specific captured piece
-      }
-      currentPlayer === "gote" ? setCapturedGote(updatedCapturedPieces) : setCapturedSente(updatedCapturedPieces);
-    
-      // Switch turns
-      setCurrentPlayer(currentPlayer === "gote" ? "sente" : "gote");
-      setSelectedPiece(null);
-      setPossibleMoves([]);
+  // Function to handle dropping a captured piece onto the board
+  const handleDropCapturedPiece = (piece, targetX, targetY) => {
+    if (board[targetX][targetY] !== " ") return; // Ensure target square is empty
+
+    // Ensure only captured pieces can be dropped by the correct player
+    const playerCapturedPieces = currentPlayer === "gote" ? capturedGote : capturedSente;
+    if (!playerCapturedPieces.includes(piece)) {
+      alert("Invalid drop: You can only drop pieces you've captured.");
+      return;
+    }
+
+    // Drop the piece on the board
+    const updatedBoard = board.map(row => [...row]);
+    updatedBoard[targetX][targetY] = currentPlayer === "gote" ? piece.toUpperCase() : piece.toLowerCase();
+    setBoard(updatedBoard);
+
+    // Remove only the selected dropped piece from captured list
+    const updatedCapturedPieces = playerCapturedPieces.slice();
+    const pieceIndex = updatedCapturedPieces.indexOf(piece);
+    if (pieceIndex > -1) {
+      updatedCapturedPieces.splice(pieceIndex, 1); // Remove the specific captured piece
+    }
+    currentPlayer === "gote" ? setCapturedGote(updatedCapturedPieces) : setCapturedSente(updatedCapturedPieces);
+
+    // Switch turns
+    setCurrentPlayer(currentPlayer === "gote" ? "sente" : "gote");
+    setSelectedPiece(null);
+    setPossibleMoves([]);
 
     // Update move history for undo/redo functionality
     setMoveHistory([...moveHistory.slice(0, undoIndex), { board: updatedBoard, player: currentPlayer }]);
@@ -683,8 +675,8 @@ const isVictory = () => {
     return moves;
   };
 
-   // Undo the last move
-   const handleUndo = () => {
+  // Undo the last move
+  const handleUndo = () => {
     if (undoIndex > 0) {
       setUndoIndex(undoIndex - 1);
       const { board: previousBoard, player } = moveHistory[undoIndex - 1];
@@ -723,13 +715,6 @@ const isVictory = () => {
     setUndoIndex(0);
   };
 
-
-
-
-
-
-
-
   const [promotedPieces, setPromotedPieces] = useState(new Set());
 
   const handlePromotion = () => (piece, x, y, updatedBoard) => {
@@ -738,16 +723,11 @@ const isVictory = () => {
     setBoard(updatedBoard);
   };
 
-  
-
-
-
-
   const handleSquareClick = (x, y) => {
     const piece = board[x][y];
     const isGotePiece = piece === piece.toUpperCase();
     const isSentePiece = piece !== " " && piece === piece.toLowerCase();
-  
+
     if (selectedPiece?.isCaptured) {
       if (possibleMoves.some(([px, py]) => px === x && py === y)) {
         handleDropCapturedPiece(selectedPiece.piece, x, y);
@@ -758,7 +738,7 @@ const isVictory = () => {
       setPossibleMoves([]);
       return;
     }
-  
+
     if (selectedPiece) {
       if (selectedPiece.x === x && selectedPiece.y === y) {
         setSelectedPiece(null);
@@ -773,7 +753,7 @@ const isVictory = () => {
       }
       return;
     }
-  
+
     // New Logic: Allow any piece to move if it resolves the check
     if (piece !== " " && ((currentPlayer === "gote" && isGotePiece) || (currentPlayer === "sente" && isSentePiece))) {
       if (isInCheck(currentPlayer)) {
@@ -783,7 +763,7 @@ const isVictory = () => {
           tempBoard[newX][newY] = piece;
           return !isInCheck(currentPlayer, tempBoard);
         });
-  
+
         if (possibleDefensiveMoves.length > 0) {
           setSelectedPiece({ x, y, piece });
           setPossibleMoves(possibleDefensiveMoves);
@@ -795,19 +775,7 @@ const isVictory = () => {
       }
     }
   };
-  
-  
-  
 
-
-  
-  
-
-
-
-
-  
-  
   return (
     <div className="container flex flex-col items-center">
       <h1 className="mb-24 text-2xl font-sente text-sente">
@@ -820,29 +788,26 @@ const isVictory = () => {
       >
         Reset
       </button>
-  
+
       <div
-        className={`board shogi-board ${
-          currentPlayer === "sente" ? "rotate-0" : ""
-        }`}
+        className={`board shogi-board ${currentPlayer === "sente" ? "rotate-0" : ""
+          }`}
       >
         {board.map((row, x) =>
           row.map((piece, y) => (
             <div
               key={`${x}-${y}`}
-              className={`cell ${
-                Array.isArray(possibleMoves) &&
+              className={`cell ${Array.isArray(possibleMoves) &&
                 possibleMoves.some(([px, py]) => px === x && py === y)
-                  ? "highlight"
-                  : ""
-              }`}
+                ? "highlight"
+                : ""
+                }`}
               onClick={() => handleSquareClick(x, y)}
             >
               {piece !== " " && (
                 <Image
-                  className={`object-center object-scale-down ${
-                    piece === piece.toLowerCase() ? "rotate-180" : ""
-                  }`}
+                  className={`object-center object-scale-down ${piece === piece.toLowerCase() ? "rotate-180" : ""
+                    }`}
                   src={pieceImages[piece]}
                   alt={piece}
                   width={1600}
@@ -853,7 +818,7 @@ const isVictory = () => {
           ))
         )}
       </div>
-  
+
       <div className="controls m-5 w-full mt-24 max-w-72 mx-auto space-x-0 sm:space-x-10 sm:space-y-0">
         <button
           className="float-start bg-blue-500 hover:bg-blue-700 text-gote font-bold py-2 px-4 rounded"
@@ -868,48 +833,48 @@ const isVictory = () => {
           Redo
         </button>
       </div>
-  
+
       <div className="captured m-5 w-full">
-  <div className="float-start inline-flex flex-row flex-wrap w-1/2">
-    <h3>Captured by Gote</h3>
-    {capturedGote.map((piece, index) => (
-      <Image
-        key={index}
-        src={pieceImages[piece.toLowerCase()]}
-        alt={piece}
-        width={1600}
-        height={1600}
-        className="cursor-pointer text-xs"
-        onClick={() => {
-          setSelectedPiece({ piece, isCaptured: true });
-          setPossibleMoves(getDropLocations(piece, board));
-        }}
-      />
-    ))}
-  </div>
-  <div className="float-end inline-flex flex-row-reverse flex-wrap w-1/2">
-    <h3>Captured by Sente</h3>
-    <div className="flex flex-wrap justify-center">
-    {capturedSente.map((piece, index) => (
-      <Image
-        key={index}
-        src={pieceImages[piece.toUpperCase()]}
-        alt={piece}
-        width={1600}
-        height={1600}
-        className="cursor-pointer text-xs"
-        onClick={() => {
-          setSelectedPiece({ piece, isCaptured: true });
-          setPossibleMoves(getDropLocations(piece, board));
-        }}
-      />
-    ))}
-  </div>
-</div>
-</div>
-</div>
+        <div className="float-start inline-flex flex-row flex-wrap w-3/4">
+          <h3>Captured by Gote</h3>
+          {capturedGote.map((piece, index) => (
+            <Image
+              key={index}
+              src={pieceImages[piece.toLowerCase()]}
+              alt={piece}
+              width={1600}
+              height={1600}
+              className="cursor-pointer text-xs"
+              onClick={() => {
+                setSelectedPiece({ piece, isCaptured: true });
+                setPossibleMoves(getDropLocations(piece, board));
+              }}
+            />
+          ))}
+        </div>
+        <div className="float-end inline-flex flex-row-reverse flex-wrap w-3/4">
+          <h3>Captured by Sente</h3>
+          <div className="flex flex-wrap justify-center">
+            {capturedSente.map((piece, index) => (
+              <Image
+                key={index}
+                src={pieceImages[piece.toUpperCase()]}
+                alt={piece}
+                width={1600}
+                height={1600}
+                className="cursor-pointer text-xs"
+                onClick={() => {
+                  setSelectedPiece({ piece, isCaptured: true });
+                  setPossibleMoves(getDropLocations(piece, board));
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
   );
-  
+
 };
 
 export default ShogiBoard;
