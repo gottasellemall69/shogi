@@ -46,6 +46,15 @@ const pieceImages = {
   K: '/images/pieces/King.svg'
 };
 
+const goldMovement = [
+  { x: 0, y: 1 },
+  { x: 0, y: -1 },
+  { x: 1, y: 0 },
+  { x: -1, y: 0 },
+  { x: 1, y: 1 },
+  { x: -1, y: 1 }
+];
+
 // Main ShogiBoard component
 const ShogiBoard = () => {
   // State management
@@ -57,7 +66,6 @@ const ShogiBoard = () => {
   const [ capturedSente, setCapturedSente ] = useState( [] ); // Pieces captured by Sente
   const [ moveHistory, setMoveHistory ] = useState( [] ); // Move history for undo/redo
   const [ undoIndex, setUndoIndex ] = useState( 0 ); // Current position in move history
-
   const BOARD_SIZE = 9;
 
   // Populate pieces with initial metadata
@@ -106,73 +114,27 @@ const ShogiBoard = () => {
     const pieceMovements = {
       p: {
         normal: [ { x: 0, y: 1 } ], // Sente Pawn moves forward
-        promoted: [
-          { x: 0, y: 1 }, // Forward
-          { x: 0, y: -1 }, // Backward
-          { x: 1, y: 0 }, // Right
-          { x: -1, y: 0 }, // Left
-          { x: 1, y: 1 }, // Diagonal forward-right
-          { x: -1, y: 1 } // Diagonal forward-left
-        ]
+        promoted: goldMovement
       },
       P: {
         normal: [ { x: 0, y: -1 } ], // Gote Pawn moves forward
-        promoted: [
-          { x: 0, y: -1 }, // Forward
-          { x: 0, y: 1 }, // Backward
-          { x: 1, y: 0 }, // Right
-          { x: -1, y: 0 }, // Left
-          { x: 1, y: -1 }, // Diagonal forward-right
-          { x: -1, y: -1 } // Diagonal forward-left
-        ]
+        promoted: goldMovement
       },
       l: {
         normal: Array.from( { length: 8 }, ( _, i ) => ( { x: 0, y: -( i + 1 ) } ) ), // Sente Lance moves any number of squares forward
-        promoted: [
-          { x: 0, y: -1 }, // Backward
-          { x: 0, y: 1 }, // Forward
-          { x: 1, y: 0 }, // Right
-          { x: -1, y: 0 } // Left
-        ]
+        promoted: goldMovement
       },
       L: {
         normal: Array.from( { length: 8 }, ( _, i ) => ( { x: 0, y: i + 1 } ) ), // Gote Lance moves any number of squares forward
-        promoted: [
-          { x: 0, y: -1 }, // Backward
-          { x: 0, y: 1 }, // Forward
-          { x: 1, y: 0 }, // Right
-          { x: -1, y: 0 } // Left
-        ]
+        promoted: goldMovement
       },
       n: {
-        normal: [
-          { x: 1, y: -2 }, // Sente Knight jumps forward
-          { x: -1, y: -2 }
-        ],
-        promoted: [
-          { x: 0, y: -1 }, // Backward
-          { x: 0, y: 1 }, // Forward
-          { x: 1, y: 0 }, // Right
-          { x: -1, y: 0 }, // Left
-          { x: 1, y: -1 }, // Diagonal backward-right
-          { x: -1, y: -1 } // Diagonal backward-left
-        ]
+        normal: [ { x: -1, y: 2 }, { x: 1, y: 2 } ],       // Sente knight
+        promoted: goldMovement
       },
       N: {
-        normal: [
-          { x: 1, y: 2 }, // Gote Knight jumps forward
-          { x: -1, y: 2 }
-        ],
-        promoted: [
-          { x: 0, y: 1 }, // Forward
-          { x: 0, y: -1 }, // Backward
-          { x: 1, y: 0 }, // Right
-          { x: -1, y: 0 }, // Left
-          { x: 1, y: 1 }, // Forward-right diagonal
-          { x: -1, y: 1 }, // Forward-left diagonal
-          { x: 1, y: -1 }, // Backward-right diagonal
-          { x: -1, y: -1 } // Backward-left diagonal
-        ]
+        normal: [ { x: -1, y: -2 }, { x: 1, y: -2 } ],     // Gote knight
+        promoted: goldMovement
       },
       s: {
         normal: [
@@ -182,12 +144,7 @@ const ShogiBoard = () => {
           { x: 1, y: -1 }, // Backward-right
           { x: -1, y: -1 } // Backward-left
         ],
-        promoted: [
-          { x: 0, y: 1 },
-          { x: 0, y: -1 },
-          { x: 1, y: 0 },
-          { x: -1, y: 0 }
-        ]
+        promoted: goldMovement
       },
       S: {
         normal: [
@@ -197,32 +154,13 @@ const ShogiBoard = () => {
           { x: 1, y: 1 },
           { x: -1, y: 1 }
         ],
-        promoted: [
-          { x: 0, y: 1 },
-          { x: 0, y: -1 },
-          { x: 1, y: 0 },
-          { x: -1, y: 0 }
-        ]
+        promoted: goldMovement
       },
       g: {
-        normal: [
-          { x: 0, y: 1 },
-          { x: 0, y: -1 },
-          { x: 1, y: 0 },
-          { x: -1, y: 0 },
-          { x: 1, y: 1 },
-          { x: -1, y: 1 }
-        ]
+        normal: goldMovement
       },
       G: {
-        normal: [
-          { x: 0, y: 1 },
-          { x: 0, y: -1 },
-          { x: 1, y: 0 },
-          { x: -1, y: 0 },
-          { x: 1, y: 1 },
-          { x: -1, y: 1 }
-        ]
+        normal: goldMovement
       },
       b: {
         normal: [
@@ -232,38 +170,26 @@ const ShogiBoard = () => {
           ...Array.from( { length: 8 }, ( _, i ) => ( { x: -( i + 1 ), y: -( i + 1 ) } ) )
         ],
         promoted: [
-          { x: 0, y: -1 },
-          { x: 0, y: 1 },
-          { x: 1, y: 0 },
-          { x: -1, y: 0 },
           ...Array.from( { length: 8 }, ( _, i ) => ( { x: i + 1, y: i + 1 } ) ),
           ...Array.from( { length: 8 }, ( _, i ) => ( { x: -( i + 1 ), y: i + 1 } ) ),
           ...Array.from( { length: 8 }, ( _, i ) => ( { x: i + 1, y: -( i + 1 ) } ) ),
-          ...Array.from( { length: 8 }, ( _, i ) => ( { x: -( i + 1 ), y: -( i + 1 ) } ) )
+          ...Array.from( { length: 8 }, ( _, i ) => ( { x: -( i + 1 ), y: -( i + 1 ) } ) ),
+          ...goldMovement
         ]
       },
       B: {
         normal: [
-          ...Array.from( { length: 8 }, ( _, i ) => ( {
-            x: -( i + 1 ),
-            y: -( i + 1 )
-          } ) ),
+          ...Array.from( { length: 8 }, ( _, i ) => ( { x: -( i + 1 ), y: -( i + 1 ) } ) ),
           ...Array.from( { length: 8 }, ( _, i ) => ( { x: i + 1, y: -( i + 1 ) } ) ),
           ...Array.from( { length: 8 }, ( _, i ) => ( { x: -( i + 1 ), y: i + 1 } ) ),
           ...Array.from( { length: 8 }, ( _, i ) => ( { x: i + 1, y: i + 1 } ) )
         ],
         promoted: [
-          { x: -1, y: 0 },
-          { x: 1, y: 0 },
-          { x: 0, y: 1 },
-          { x: 0, y: -1 },
-          ...Array.from( { length: 8 }, ( _, i ) => ( {
-            x: -( i + 1 ),
-            y: -( i + 1 )
-          } ) ),
+          ...Array.from( { length: 8 }, ( _, i ) => ( { x: -( i + 1 ), y: -( i + 1 ) } ) ),
           ...Array.from( { length: 8 }, ( _, i ) => ( { x: i + 1, y: -( i + 1 ) } ) ),
           ...Array.from( { length: 8 }, ( _, i ) => ( { x: -( i + 1 ), y: i + 1 } ) ),
-          ...Array.from( { length: 8 }, ( _, i ) => ( { x: i + 1, y: i + 1 } ) )
+          ...Array.from( { length: 8 }, ( _, i ) => ( { x: i + 1, y: i + 1 } ) ),
+          ...goldMovement
         ]
       },
       r: {
@@ -274,14 +200,14 @@ const ShogiBoard = () => {
           ...Array.from( { length: 8 }, ( _, i ) => ( { x: -( i + 1 ), y: 0 } ) )
         ],
         promoted: [
-          { x: 1, y: 1 },
-          { x: -1, y: 1 },
-          { x: 1, y: -1 },
-          { x: -1, y: -1 },
           ...Array.from( { length: 8 }, ( _, i ) => ( { x: 0, y: i + 1 } ) ),
           ...Array.from( { length: 8 }, ( _, i ) => ( { x: 0, y: -( i + 1 ) } ) ),
           ...Array.from( { length: 8 }, ( _, i ) => ( { x: i + 1, y: 0 } ) ),
-          ...Array.from( { length: 8 }, ( _, i ) => ( { x: -( i + 1 ), y: 0 } ) )
+          ...Array.from( { length: 8 }, ( _, i ) => ( { x: -( i + 1 ), y: 0 } ) ),
+          { x: 1, y: 1 },
+          { x: -1, y: 1 },
+          { x: 1, y: -1 },
+          { x: -1, y: -1 }
         ]
       },
       R: {
@@ -292,14 +218,14 @@ const ShogiBoard = () => {
           ...Array.from( { length: 8 }, ( _, i ) => ( { x: -i + 1, y: 0 } ) )
         ],
         promoted: [
-          { x: -1, y: -1 },
-          { x: 1, y: -1 },
-          { x: -1, y: 1 },
-          { x: 1, y: 1 },
           ...Array.from( { length: 8 }, ( _, i ) => ( { x: 0, y: -( i + 1 ) } ) ),
           ...Array.from( { length: 8 }, ( _, i ) => ( { x: 0, y: i + 1 } ) ),
           ...Array.from( { length: 8 }, ( _, i ) => ( { x: -( i + 1 ), y: 0 } ) ),
-          ...Array.from( { length: 8 }, ( _, i ) => ( { x: i + 1, y: 0 } ) )
+          ...Array.from( { length: 8 }, ( _, i ) => ( { x: i + 1, y: 0 } ) ),
+          { x: -1, y: -1 },
+          { x: 1, y: -1 },
+          { x: -1, y: 1 },
+          { x: 1, y: 1 }
         ]
       },
       k: {
@@ -491,17 +417,15 @@ const ShogiBoard = () => {
       return;
 
     const { x, y, piece } = selectedPiece;
-    const updatedBoard = JSON.parse( JSON.stringify( board ) ); // Deep copy
+    const updatedBoard = board.map( r => [ ...r ] );
 
-    // Capture handling
+    // Capture handling (unchanged)
     const capturedPiece = updatedBoard[ targetX ][ targetY ];
     if ( capturedPiece !== ' ' ) {
-      const normalizedPiece = capturedPiece.replace( '+', '' );
-      if ( currentPlayer === 'gote' ) {
-        setCapturedGote( [ ...capturedGote, normalizedPiece.toLowerCase() ] );
-      } else {
-        setCapturedSente( [ ...capturedSente, normalizedPiece.toUpperCase() ] );
-      }
+      const norm = capturedPiece.replace( '+', '' );
+      if ( currentPlayer === 'gote' ) setCapturedGote( [ ...capturedGote, norm.toLowerCase() ] );
+      else
+        setCapturedSente( [ ...capturedSente, norm.toUpperCase() ] );
     }
 
     // Clear original position
@@ -509,13 +433,15 @@ const ShogiBoard = () => {
 
     // Handle promotion logic
     if ( shouldPromote( piece, targetX ) ) {
-      const promotionChoice = window.confirm(
-        'Do you want to promote this piece?'
-      );
-      updatedBoard[ targetX ][ targetY ] =
-        promotionChoice && !piece.includes( '+' ) ? piece + '+' : piece;
+      const promote = window.confirm( 'Do you want to promote this piece?' );
+      updatedBoard[ targetX ][ targetY ] = promote && !piece.includes( '+' ) ? piece + '+' : piece;
     } else {
       updatedBoard[ targetX ][ targetY ] = piece;
+    }
+
+    if ( isInCheck( currentPlayer, updatedBoard ) ) {
+      alert( "Invalid move: you cannot leave your king in check." );
+      return;
     }
 
     // Update the board and switch turns
@@ -679,33 +605,45 @@ const ShogiBoard = () => {
 
   // Function to handle dropping a captured piece onto the board
   const handleDropCapturedPiece = ( piece, targetX, targetY ) => {
-    if ( board[ targetX ][ targetY ] !== ' ' ) return; // Ensure target square is empty
-
-    // Ensure only captured pieces can be dropped by the correct player
-    const playerCapturedPieces =
-      currentPlayer === 'gote' ? capturedGote : capturedSente;
-    if ( !playerCapturedPieces.includes( piece ) ) {
+    if ( board[ targetX ][ targetY ] !== ' ' ) return;
+    const playerCaps = currentPlayer === 'gote' ? capturedGote : capturedSente;
+    if ( !playerCaps.includes( piece ) ) {
       alert( "Invalid drop: You can only drop pieces you've captured." );
       return;
     }
 
-    // Drop the piece on the board
-    const updatedBoard = board.map( row => [ ...row ] );
-    updatedBoard[ targetX ][ targetY ] =
-      currentPlayer === 'gote' ? piece.toUpperCase() : piece.toLowerCase();
-    setBoard( updatedBoard );
+    // Simulate drop
+    const updatedBoard = board.map( r => [ ...r ] );
+    updatedBoard[ targetX ][ targetY ] = currentPlayer === 'gote'
+      ? piece.toUpperCase() : piece.toLowerCase();
 
-    // Remove only the selected dropped piece from captured list
-    const updatedCapturedPieces = playerCapturedPieces.slice();
-    const pieceIndex = updatedCapturedPieces.indexOf( piece );
-    if ( pieceIndex > -1 ) {
-      updatedCapturedPieces.splice( pieceIndex, 1 ); // Remove the specific captured piece
+    // **NEW: Uchifuzume — cannot drop pawn delivering immediate checkmate**
+    if ( piece.toLowerCase() === 'p' ) {
+      const isMate = isCheckmate(
+        currentPlayer === 'gote' ? 'sente' : 'gote',
+        updatedBoard
+      );
+      if ( isMate ) {
+        alert( "Invalid pawn drop: it would deliver immediate checkmate (Uchifuzume)." );
+        return;
+      }
     }
-    currentPlayer === 'gote'
-      ? setCapturedGote( updatedCapturedPieces )
-      : setCapturedSente( updatedCapturedPieces );
 
-    // Switch turns
+    // **NEW: prevent drop into self‑check**
+    if ( isInCheck( currentPlayer, updatedBoard ) ) {
+      alert( "Invalid drop: you cannot leave your king in check." );
+      return;
+    }
+
+    // Commit drop
+    setBoard( updatedBoard );
+    // remove one from captured
+    const newCaps = playerCaps.slice();
+    newCaps.splice( newCaps.indexOf( piece ), 1 );
+    currentPlayer === 'gote'
+      ? setCapturedGote( newCaps )
+      : setCapturedSente( newCaps );
+
     setCurrentPlayer( currentPlayer === 'gote' ? 'sente' : 'gote' );
     setSelectedPiece( null );
     setPossibleMoves( [] );
@@ -721,21 +659,6 @@ const ShogiBoard = () => {
       alert( `${ currentPlayer === 'gote' ? 'Sente' : 'Gote' } wins!` );
       resetGame();
     }
-  };
-
-  // Check if dropping a piece is legal
-  const isValidDrop = ( piece, x, y, board ) => {
-    const isPawn = piece.toLowerCase() === 'p';
-
-    if ( isPawn && !isValidPawnDrop( x, y, board ) ) {
-      return false; // Invalid pawn drop (Nifu or Uchifuzume)
-    }
-
-    // Ensure the drop doesn't result in an immediate checkmate
-    const tempBoard = board.map( row => [ ...row ] );
-    tempBoard[ x ][ y ] =
-      currentPlayer === 'gote' ? piece.toUpperCase() : piece.toLowerCase();
-    return !isCheckmate( currentPlayer === 'gote' ? 'sente' : 'gote', tempBoard );
   };
 
   // Validate pawn-specific drop rules (Nifu and last-rank restriction)
@@ -764,6 +687,23 @@ const ShogiBoard = () => {
     return true;
   };
 
+  // Check if dropping a piece is legal
+  const isValidDrop = ( piece, x, y, board ) => {
+    if ( piece.toLowerCase() === 'p' && !isValidPawnDrop( x, y, board ) ) return false;
+
+    // Simulate drop
+    const temp = board.map( r => [ ...r ] );
+    temp[ x ][ y ] = currentPlayer === 'gote' ? piece.toUpperCase() : piece.toLowerCase();
+
+    // Cannot deliver immediate checkmate by pawn
+    if ( piece.toLowerCase() === 'p' && isCheckmate(
+      currentPlayer === 'gote' ? 'sente' : 'gote',
+      temp
+    ) ) return false;
+
+    // And cannot leave yourself in check
+    return !isInCheck( currentPlayer, temp );
+  };
   // Get legal drop locations for a captured piece
   const getDropLocations = ( piece, board ) => {
     const moves = [];
