@@ -295,30 +295,28 @@ const ShogiBoard = () => {
     // Check each possible move based on piece type
     switch ( basePiece ) {
       case 'r': // Rook
+        // Four orthogonal directions: down, up, right, left
         const rookDirs = [
-          [ 0, 1 ],
-          [ 0, -1 ],
-          [ 1, 0 ],
-          [ -1, 0 ]
+          [ 1, 0 ],  // down
+          [ -1, 0 ],  // up
+          [ 0, 1 ],  // right
+          [ 0, -1 ]   // left
         ];
-        rookDirs.forEach( ( [ dx, dy ] ) => handleSlidingMove( x, y, dx, dy ) );
+        rookDirs.forEach( ( [ dx, dy ] ) =>
+          handleSlidingMove( x, y, dx, dy )
+        );
 
-        // Add king-like moves for promoted rook
+        // If promoted, also add single‑step diagonal moves
         if ( isPromoted ) {
-          ;[
-            [ -1, -1 ],
-            [ -1, 1 ],
-            [ 1, -1 ],
-            [ 1, 1 ]
-          ].forEach( ( [ dx, dy ] ) => {
-            const newX = x + dx;
-            const newY = y + dy;
-            if ( isInBounds( newX, newY ) && canCapture( newX, newY ) ) {
-              possibleMoves.push( [ newX, newY ] );
+          [ [ 1, 1 ], [ 1, -1 ], [ -1, 1 ], [ -1, -1 ] ].forEach( ( [ dx, dy ] ) => {
+            const nx = x + dx, ny = y + dy;
+            if ( isInBounds( nx, ny ) && canCapture( nx, ny ) ) {
+              possibleMoves.push( [ nx, ny ] );
             }
           } );
         }
         break;
+
 
       case 'b': // Bishop
         const bishopDirs = [
@@ -352,6 +350,9 @@ const ShogiBoard = () => {
         break;
 
       case 'n': // Knight
+        // promoted knight: fall through to default → goldMovement
+        if ( isPromoted ) break;
+        // unpromoted knight: L‑shaped jump
         const knightMoves = isGote
           ? [
             [ -2, -1 ],
@@ -371,27 +372,16 @@ const ShogiBoard = () => {
         } );
         break;
 
+
       case 'p': // Pawn
-        const pawnDir = isGote ? -1 : 1;
-        const newX = x + pawnDir;
-        if ( isInBounds( newX, y ) && canCapture( newX, y ) ) {
-          possibleMoves.push( [ newX, y ] );
+        if ( !isPromoted ) {
+          const pawnDir = isGote ? -1 : 1;
+          const newX = x + pawnDir;
+          if ( isInBounds( newX, y ) && canCapture( newX, y ) ) {
+            possibleMoves.push( [ newX, y ] );
+          }
+          break;
         }
-        if ( isPromoted ) {
-          ;[
-            [ 0, 1 ],
-            [ 0, -1 ],
-            [ 1, 0 ],
-            [ -1, 0 ]
-          ].forEach( ( [ dx, dy ] ) => {
-            const newX = x + dx;
-            const newY = y + dy;
-            if ( isInBounds( newX, newY ) && canCapture( newX, newY ) ) {
-              possibleMoves.push( [ newX, newY ] );
-            }
-          } );
-        }
-        break;
 
       default: // For non-sliding pieces like King, Gold, Silver, etc.
         if ( moveSet && Array.isArray( moveSet ) ) {
