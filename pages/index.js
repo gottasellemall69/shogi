@@ -113,11 +113,11 @@ const ShogiBoard = () => {
 
     const pieceMovements = {
       p: {
-        normal: [ { x: 0, y: 1 } ], // Sente Pawn moves forward
+        normal: [ { x: 0, y: -1 } ], // Sente Pawn moves forward
         promoted: goldMovement
       },
       P: {
-        normal: [ { x: 0, y: -1 } ], // Gote Pawn moves forward
+        normal: [ { x: 0, y: 1 } ], // Gote Pawn moves forward
         promoted: goldMovement
       },
       l: {
@@ -345,32 +345,35 @@ const ShogiBoard = () => {
         break;
 
       case 'l': // Lance
-        const direction = isGote ? -1 : 1;
-        handleSlidingMove( x, y, direction, 0 );
-        break;
+        if ( !isPromoted ) {
+          const direction = isGote ? -1 : 1;
+          handleSlidingMove( x, y, direction, 0 );
+          break; // only break for unpromoted
+        }
+      // Let promoted lance fall through to default for goldMovement
+
 
       case 'n': // Knight
-        // promoted knight: fall through to default → goldMovement
-        if ( isPromoted ) break;
-        // unpromoted knight: L‑shaped jump
-        const knightMoves = isGote
-          ? [
-            [ -2, -1 ],
-            [ -2, 1 ]
-          ] // Gote knight
-          : [
-            [ 2, -1 ],
-            [ 2, 1 ]
-          ]; // Sente knight
+        if ( !isPromoted ) {
+          const knightMoves = isGote
+            ? [
+              [ -2, -1 ],
+              [ -2, 1 ]
+            ] // Gote knight
+            : [
+              [ 2, -1 ],
+              [ 2, 1 ]
+            ]; // Sente knight
 
-        knightMoves.forEach( ( [ dx, dy ] ) => {
-          const newX = x + dx;
-          const newY = y + dy;
-          if ( isInBounds( newX, newY ) && canCapture( newX, newY ) ) {
-            possibleMoves.push( [ newX, newY ] );
-          }
-        } );
-        break;
+          knightMoves.forEach( ( [ dx, dy ] ) => {
+            const newX = x + dx;
+            const newY = y + dy;
+            if ( isInBounds( newX, newY ) && canCapture( newX, newY ) ) {
+              possibleMoves.push( [ newX, newY ] );
+            }
+          } );
+          break; // prevent falling through if unpromoted
+        }
 
 
       case 'p': // Pawn
@@ -383,10 +386,10 @@ const ShogiBoard = () => {
           break;
         }
 
-      default: // For non-sliding pieces like King, Gold, Silver, etc.
+      default:
         if ( moveSet && Array.isArray( moveSet ) ) {
           moveSet.forEach( ( { x: dx, y: dy } ) => {
-            const newX = x + ( isGote ? -dy : dy ); // Adjust for player perspective
+            const newX = x + ( isGote ? -dy : dy );
             const newY = y + dx;
             if ( isInBounds( newX, newY ) && canCapture( newX, newY ) ) {
               possibleMoves.push( [ newX, newY ] );
@@ -394,6 +397,7 @@ const ShogiBoard = () => {
           } );
         }
         break;
+
     }
 
     return possibleMoves;
@@ -403,25 +407,37 @@ const ShogiBoard = () => {
     if (
       !selectedPiece ||
       !possibleMoves.some( ( [ px, py ] ) => px === targetX && py === targetY )
-    )
-      return;
+    ) return;
 
     const { x, y, piece } = selectedPiece;
     const updatedBoard = board.map( r => [ ...r ] );
 
-    // Capture handling (unchanged)
+    // 🔥 Save game state BEFORE the move happens
+    setMoveHistory( [
+      ...moveHistory.slice( 0, undoIndex ),
+      {
+        type: 'move',
+        board: board.map( r => [ ...r ] ),
+        player: currentPlayer,
+        capturedGote: [ ...capturedGote ],
+        capturedSente: [ ...capturedSente ]
+      }
+    ] );
+    setUndoIndex( undoIndex + 1 );
+
+    // Capture logic
     const capturedPiece = updatedBoard[ targetX ][ targetY ];
     if ( capturedPiece !== ' ' ) {
       const norm = capturedPiece.replace( '+', '' );
-      if ( currentPlayer === 'gote' ) setCapturedGote( [ ...capturedGote, norm.toLowerCase() ] );
-      else
+      if ( currentPlayer === 'gote' ) {
+        setCapturedGote( [ ...capturedGote, norm.toLowerCase() ] );
+      } else {
         setCapturedSente( [ ...capturedSente, norm.toUpperCase() ] );
+      }
     }
 
-    // Clear original position
     updatedBoard[ x ][ y ] = ' ';
 
-    // Handle promotion logic
     if ( shouldPromote( piece, targetX ) ) {
       const promote = window.confirm( 'Do you want to promote this piece?' );
       updatedBoard[ targetX ][ targetY ] = promote && !piece.includes( '+' ) ? piece + '+' : piece;
@@ -434,25 +450,17 @@ const ShogiBoard = () => {
       return;
     }
 
-    // Update the board and switch turns
     setBoard( updatedBoard );
     setCurrentPlayer( currentPlayer === 'gote' ? 'sente' : 'gote' );
     setSelectedPiece( null );
     setPossibleMoves( [] );
 
-    // Add move to history for undo/redo functionality
-    setMoveHistory( [
-      ...moveHistory.slice( 0, undoIndex ),
-      { board: updatedBoard, player: currentPlayer }
-    ] );
-    setUndoIndex( moveHistory.length + 1 );
-
-    // Check for victory condition after the move
     if ( isVictory() ) {
       alert( `${ currentPlayer === 'gote' ? 'Sente' : 'Gote' } wins!` );
       resetGame();
     }
   };
+
 
   // Determine if a piece should promote based on its type and position
   const shouldPromote = ( piece, x ) => {
@@ -602,54 +610,47 @@ const ShogiBoard = () => {
       return;
     }
 
-    // Simulate drop
     const updatedBoard = board.map( r => [ ...r ] );
     updatedBoard[ targetX ][ targetY ] = currentPlayer === 'gote'
-      ? piece.toUpperCase() : piece.toLowerCase();
+      ? piece.toUpperCase()
+      : piece.toLowerCase();
 
-    // **NEW: Uchifuzume — cannot drop pawn delivering immediate checkmate**
-    if ( piece.toLowerCase() === 'p' ) {
-      const isMate = isCheckmate(
-        currentPlayer === 'gote' ? 'sente' : 'gote',
-        updatedBoard
-      );
-      if ( isMate ) {
-        alert( "Invalid pawn drop: it would deliver immediate checkmate (Uchifuzume)." );
-        return;
+    // 🔥 Save game state BEFORE the drop
+    setMoveHistory( [
+      ...moveHistory.slice( 0, undoIndex ),
+      {
+        type: 'drop',
+        board: board.map( r => [ ...r ] ),
+        player: currentPlayer,
+        capturedGote: [ ...capturedGote ],
+        capturedSente: [ ...capturedSente ]
       }
-    }
+    ] );
+    setUndoIndex( undoIndex + 1 );
 
-    // **NEW: prevent drop into self‑check**
-    if ( isInCheck( currentPlayer, updatedBoard ) ) {
-      alert( "Invalid drop: you cannot leave your king in check." );
-      return;
-    }
-
-    // Commit drop
-    setBoard( updatedBoard );
-    // remove one from captured
+    // Remove piece from captured array
     const newCaps = playerCaps.slice();
     newCaps.splice( newCaps.indexOf( piece ), 1 );
     currentPlayer === 'gote'
       ? setCapturedGote( newCaps )
       : setCapturedSente( newCaps );
 
+    if ( isInCheck( currentPlayer, updatedBoard ) ) {
+      alert( "Invalid drop: you cannot leave your king in check." );
+      return;
+    }
+
+    setBoard( updatedBoard );
     setCurrentPlayer( currentPlayer === 'gote' ? 'sente' : 'gote' );
     setSelectedPiece( null );
     setPossibleMoves( [] );
-
-    // Update move history for undo/redo functionality
-    setMoveHistory( [
-      ...moveHistory.slice( 0, undoIndex ),
-      { board: updatedBoard, player: currentPlayer }
-    ] );
-    setUndoIndex( moveHistory.length + 1 );
 
     if ( isVictory() ) {
       alert( `${ currentPlayer === 'gote' ? 'Sente' : 'Gote' } wins!` );
       resetGame();
     }
   };
+
 
   // Validate pawn-specific drop rules (Nifu and last-rank restriction)
   const isValidPawnDrop = ( x, y, board ) => {
@@ -707,33 +708,60 @@ const ShogiBoard = () => {
     return moves;
   };
 
+  const refreshGameState = ( player ) => {
+    if ( isVictory() ) return;
+    if ( isCheckmate( player ) || isStalemate( player ) ) return;
+  };
+
   // Undo the last move
   const handleUndo = () => {
-    if ( undoIndex > 0 ) {
-      setUndoIndex( undoIndex - 1 );
-      const { board: previousBoard, player } = moveHistory[ undoIndex - 1 ];
-      setBoard( previousBoard );
-      setCurrentPlayer( player );
-      setSelectedPiece( null );
-      setPossibleMoves( [] );
-    } else {
+    if ( undoIndex <= 0 || !moveHistory[ undoIndex - 1 ] ) {
       alert( 'No more moves to undo.' );
+      return;
     }
+
+    const {
+      board: previousBoard,
+      player,
+      capturedGote = [],
+      capturedSente = []
+    } = moveHistory[ undoIndex - 1 ];
+
+    setUndoIndex( undoIndex - 1 );
+    setBoard( previousBoard.map( row => [ ...row ] ) );
+    setCurrentPlayer( player );
+    setCapturedGote( [ ...capturedGote ] );
+    setCapturedSente( [ ...capturedSente ] );
+    setSelectedPiece( null );
+    setPossibleMoves( [] );
+    refreshGameState( player );
   };
+
 
   // Redo a move that was undone
   const handleRedo = () => {
-    if ( undoIndex < moveHistory.length ) {
-      setUndoIndex( undoIndex + 1 );
-      const { board: nextBoard, player } = moveHistory[ undoIndex ];
-      setBoard( nextBoard );
-      setCurrentPlayer( player );
-      setSelectedPiece( null );
-      setPossibleMoves( [] );
-    } else {
+    if ( undoIndex >= moveHistory.length || !moveHistory[ undoIndex ] ) {
       alert( 'No more moves to redo.' );
+      return;
     }
+
+    const {
+      board: nextBoard,
+      player,
+      capturedGote = [],
+      capturedSente = []
+    } = moveHistory[ undoIndex ];
+
+    setUndoIndex( undoIndex + 1 );
+    setBoard( nextBoard.map( row => [ ...row ] ) );
+    setCurrentPlayer( player );
+    setCapturedGote( [ ...capturedGote ] );
+    setCapturedSente( [ ...capturedSente ] );
+    setSelectedPiece( null );
+    setPossibleMoves( [] );
+    refreshGameState( player );
   };
+
 
   // Reset the entire game (already included but reiterated here)
   const resetGame = () => {
@@ -822,74 +850,20 @@ const ShogiBoard = () => {
   };
 
   return (
-    <div className='container flex flex-col items-center'>
-      <h1 className='mb-24 text-2xl font-sente text-sente'>
-        Current Player: { currentPlayer }
-        { isInCheck( currentPlayer ) && ` (in check)` }
-      </h1>
-      <button
-        className='mb-5 mx-auto bg-blue-500 hover:bg-blue-700 text-gote font-bold py-2 px-4 rounded'
-        onClick={ resetGame }
-      >
-        Reset
-      </button>
+    <div className="flex flex-row w-full min-h-screen h-fit overflow-hidden">
+      {/* Left: Captured by Gote */ }
+      <div className="max-w-prose bg-gray-100 p-2 flex items-center overflow-y-auto max-h-fit">
 
-      <div
-        className={ `board ${ currentPlayer === 'sente' ? 'rotate-0' : ''
-          }` }
-      >
-        { board.map( ( row, x ) =>
-          row.map( ( piece, y ) => (
-            <div
-              key={ `${ x }-${ y }` }
-              className={ `cell ${ Array.isArray( possibleMoves ) &&
-                possibleMoves.some( ( [ px, py ] ) => px === x && py === y )
-                ? 'highlight'
-                : ''
-                }` }
-              onClick={ () => handleSquareClick( x, y ) }
-            >
-              { piece !== ' ' && (
-                <Image
-                  className={ `object-center object-scale-down ${ piece === piece.toLowerCase() ? 'rotate-180' : ''
-                    }` }
-                  src={ pieceImages[ piece ] }
-                  alt={ piece }
-                  width={ 1600 }
-                  height={ 1600 }
-                />
-              ) }
-            </div>
-          ) )
-        ) }
-      </div>
-
-      <div className='controls m-5 w-full mt-24 max-w-72 mx-auto space-x-0 sm:space-x-10 sm:space-y-0'>
-        <button
-          className='float-start bg-blue-500 hover:bg-blue-700 text-gote font-bold py-2 px-4 rounded'
-          onClick={ handleUndo }
-        >
-          Undo
-        </button>
-        <button
-          className='float-end bg-blue-500 hover:bg-blue-700 text-gote font-bold py-2 px-4 rounded'
-          onClick={ handleRedo }
-        >
-          Redo
-        </button>
-      </div>
-
-      <div className='captured m-5 w-full'>
-        <div className='float-start inline-flex flex-row flex-wrap w-1/2'>
-          <h3>Captured by Gote</h3>
+        <div className="float-start flex-wrap flex-col mx-auto w-full">
+          <h3 className="text-lg font-bold mb-2">Captured by Gote</h3>
           { capturedGote.map( ( piece, index ) => (
             <Image
               key={ index }
               src={ pieceImages[ piece.toLowerCase() ] }
               alt={ piece }
-              width={ 1600 }
-              height={ 1600 }
-              className='cursor-pointer text-xs'
+              width={ 48 }
+              height={ 48 }
+              className="cursor-pointer mb-1"
               onClick={ () => {
                 setSelectedPiece( { piece, isCaptured: true } );
                 setPossibleMoves( getDropLocations( piece, board ) );
@@ -897,28 +871,87 @@ const ShogiBoard = () => {
             />
           ) ) }
         </div>
-        <div className='float-end inline-flex flex-row-reverse flex-wrap w-1/2'>
-          <h3>Captured by Sente</h3>
-          <div className='flex flex-wrap justify-center'>
-            { capturedSente.map( ( piece, index ) => (
-              <Image
-                key={ index }
-                src={ pieceImages[ piece.toUpperCase() ] }
-                alt={ piece }
-                width={ 1600 }
-                height={ 1600 }
-                className='cursor-pointer text-xs'
-                onClick={ () => {
-                  setSelectedPiece( { piece, isCaptured: true } );
-                  setPossibleMoves( getDropLocations( piece, board ) );
-                } }
-              />
-            ) ) }
-          </div>
+      </div>
+
+      {/* Middle: Shogi Board */ }
+      <div className="flex flex-col items-center justify-start p-4">
+        <h1 className="text-2xl mb-4 font-bold">
+          Current Player: { currentPlayer }
+          { isInCheck( currentPlayer ) && ` (in check)` }
+        </h1>
+
+        <div className={ `board w-100vw` }>
+          { board.map( ( row, x ) =>
+            row.map( ( piece, y ) => (
+              <div
+                key={ `${ x }-${ y }` }
+                className={ `cell w-full aspect-square border border-gray-300 flex items-center justify-center ${ Array.isArray( possibleMoves ) &&
+                  possibleMoves.some( ( [ px, py ] ) => px === x && py === y )
+                  ? 'highlight'
+                  : ''
+                  }` }
+                onClick={ () => handleSquareClick( x, y ) }
+              >
+                { piece !== ' ' && (
+                  <Image
+                    className={ `object-contain ${ piece === piece.toLowerCase() ? 'rotate-180' : '' }` }
+                    src={ pieceImages[ piece ] }
+                    alt={ piece }
+                    width={ 48 }
+                    height={ 48 }
+                  />
+                ) }
+              </div>
+            ) )
+          ) }
+        </div>
+
+        <div className="mt-4 flex justify-between space-x-4">
+          <button
+            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+            onClick={ handleUndo }
+          >
+            Undo
+          </button>
+          <button
+            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+            onClick={ handleRedo }
+          >
+            Redo
+          </button>
+          <button
+            className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+            onClick={ resetGame }
+          >
+            Reset
+          </button>
+        </div>
+      </div>
+
+      {/* Right: Captured by Sente */ }
+      <div className="max-w-prose bg-gray-100 p-2 flex items-center overflow-y-auto max-h-fit">
+
+        <div className="flex-wrap float-end flex-col mx-auto w-full">
+          <h3 className="text-lg font-bold mb-2">Captured by Sente</h3>
+          { capturedSente.map( ( piece, index ) => (
+            <Image
+              key={ index }
+              src={ pieceImages[ piece.toUpperCase() ] }
+              alt={ piece }
+              width={ 48 }
+              height={ 48 }
+              className="cursor-pointer mb-1"
+              onClick={ () => {
+                setSelectedPiece( { piece, isCaptured: true } );
+                setPossibleMoves( getDropLocations( piece, board ) );
+              } }
+            />
+          ) ) }
         </div>
       </div>
     </div>
   );
+
 };
 
 export default ShogiBoard;
