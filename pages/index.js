@@ -14,36 +14,42 @@ const initialBoard = [
   [ 'L', 'N', 'S', 'G', 'K', 'G', 'S', 'N', 'L' ]
 ];
 
+const pieceNames = {
+  p: 'Pawn', 'p+': 'Tokin',
+  l: 'Lance', 'l+': 'Promoted Lance',
+  n: 'Knight', 'n+': 'Promoted Knight',
+  s: 'Silver General', 's+': 'Promoted Silver',
+  g: 'Gold General',
+  b: 'Bishop', 'b+': 'Horse',
+  r: 'Rook', 'r+': 'Dragon',
+  k: 'King',
+  P: 'Pawn', 'P+': 'Tokin',
+  L: 'Lance', 'L+': 'Promoted Lance',
+  N: 'Knight', 'N+': 'Promoted Knight',
+  S: 'Silver General', 'S+': 'Promoted Silver',
+  G: 'Gold General',
+  B: 'Bishop', 'B+': 'Horse',
+  R: 'Rook', 'R+': 'Dragon',
+  K: 'King'
+};
+
+
 // Piece images mapped to their symbols
 const pieceImages = {
-  p: '/images/pieces/Pawn.svg',
-  P: '/images/pieces/Pawn.svg',
-  'p+': '/images/pieces/Pawn+.svg',
-  'P+': '/images/pieces/Pawn+.svg',
-  l: '/images/pieces/Lance.svg',
-  L: '/images/pieces/Lance.svg',
-  'l+': '/images/pieces/Lance+.svg',
-  'L+': '/images/pieces/Lance+.svg',
-  n: '/images/pieces/Knight.svg',
-  N: '/images/pieces/Knight.svg',
-  'n+': '/images/pieces/Knight+.svg',
-  'N+': '/images/pieces/Knight+.svg',
-  s: '/images/pieces/SilverGeneral.svg',
-  S: '/images/pieces/SilverGeneral.svg',
-  's+': '/images/pieces/SilverGeneral+.svg',
-  'S+': '/images/pieces/SilverGeneral+.svg',
-  g: '/images/pieces/GoldGeneral.svg',
-  G: '/images/pieces/GoldGeneral.svg',
-  b: '/images/pieces/Bishop.svg',
-  B: '/images/pieces/Bishop.svg',
-  'b+': '/images/pieces/Bishop+.svg',
-  'B+': '/images/pieces/Bishop+.svg',
-  r: '/images/pieces/Rook.svg',
-  R: '/images/pieces/Rook.svg',
-  'r+': '/images/pieces/Rook+.svg',
-  'R+': '/images/pieces/Rook+.svg',
-  k: '/images/pieces/_king.svg',
-  K: '/images/pieces/King.svg'
+  p: '/images/pieces/Pawn.svg', P: '/images/pieces/Pawn.svg',
+  'p+': '/images/pieces/Pawn+.svg', 'P+': '/images/pieces/Pawn+.svg',
+  l: '/images/pieces/Lance.svg', L: '/images/pieces/Lance.svg',
+  'l+': '/images/pieces/Lance+.svg', 'L+': '/images/pieces/Lance+.svg',
+  n: '/images/pieces/Knight.svg', N: '/images/pieces/Knight.svg',
+  'n+': '/images/pieces/Knight+.svg', 'N+': '/images/pieces/Knight+.svg',
+  s: '/images/pieces/SilverGeneral.svg', S: '/images/pieces/SilverGeneral.svg',
+  's+': '/images/pieces/SilverGeneral+.svg', 'S+': '/images/pieces/SilverGeneral+.svg',
+  g: '/images/pieces/GoldGeneral.svg', G: '/images/pieces/GoldGeneral.svg',
+  b: '/images/pieces/Bishop.svg', B: '/images/pieces/Bishop.svg',
+  'b+': '/images/pieces/Bishop+.svg', 'B+': '/images/pieces/Bishop+.svg',
+  r: '/images/pieces/Rook.svg', R: '/images/pieces/Rook.svg',
+  'r+': '/images/pieces/Rook+.svg', 'R+': '/images/pieces/Rook+.svg',
+  k: '/images/pieces/_king.svg', K: '/images/pieces/King.svg'
 };
 
 const goldMovement = [
@@ -69,6 +75,8 @@ const ShogiBoard = () => {
   const [ undoIndex, setUndoIndex ] = useState( 0 ); // Current position in move history
   const [ vsAI, setVsAI ] = useState( true );
   const [ gameOver, setGameOver ] = useState( false );
+  const [ lastMove, setLastMove ] = useState( null ); // { from: [x, y], to: [x, y] }
+
 
 
   const BOARD_SIZE = 9;
@@ -458,6 +466,8 @@ const ShogiBoard = () => {
     setCurrentPlayer( currentPlayer === 'gote' ? 'sente' : 'gote' );
     setSelectedPiece( null );
     setPossibleMoves( [] );
+    setLastMove( { from: [ x, y ], to: [ targetX, targetY ] } );
+
 
     if ( isVictory() ) {
       alert( `${ currentPlayer === 'gote' ? 'Sente' : 'Gote' } wins!` );
@@ -740,17 +750,21 @@ const ShogiBoard = () => {
   const scoreMove = ( { piece, captured, promotes, putsOpponentInCheck } ) => {
     const val = pieceValue[ piece.replace( '+', '' ).toLowerCase() ] || 0;
     const capturedVal = captured ? ( pieceValue[ captured.replace( '+', '' ).toLowerCase() ] || 0 ) : 0;
-    let score = capturedVal - val * 0.5; // Penalize bad trades
-    if ( promotes ) score += 1.5;
-    if ( putsOpponentInCheck ) score += 2;
+
+    let score = 0;
+    score += capturedVal;
+    score += promotes ? 1.5 : 0;
+    score += putsOpponentInCheck ? 2 : 0;
+    score -= val * 0.2; // discourage trading down
+
     return score;
   };
-
 
   const performAIMove = useCallback( () => {
     if ( currentPlayer !== 'sente' || gameOver ) return;
 
     const generateBoardClone = () => board.map( row => [ ...row ] );
+
     const allMoves = [];
 
     for ( let x = 0; x < 9; x++ ) {
@@ -764,12 +778,16 @@ const ShogiBoard = () => {
           const tempBoard = generateBoardClone();
           const captured = tempBoard[ targetX ][ targetY ];
           const willPromote = shouldPromote( piece, targetX ) && !piece.includes( '+' );
-          const movePiece = willPromote ? piece + '+' : piece;
+          const promotedPiece = willPromote ? piece + '+' : piece;
 
           tempBoard[ x ][ y ] = ' ';
-          tempBoard[ targetX ][ targetY ] = movePiece;
+          tempBoard[ targetX ][ targetY ] = promotedPiece;
+
+          // ✅ Filter out self-checking moves
+          if ( isInCheck( 'sente', tempBoard ) ) continue;
 
           const putsOpponentInCheck = isInCheck( 'gote', tempBoard );
+
           const score = scoreMove( {
             piece,
             captured,
@@ -788,12 +806,15 @@ const ShogiBoard = () => {
       }
     }
 
-    // Drop logic
+    // Drop moves
     for ( const captured of capturedSente ) {
       const dropLocations = getDropLocations( captured, board );
       for ( const [ dx, dy ] of dropLocations ) {
         const tempBoard = generateBoardClone();
         tempBoard[ dx ][ dy ] = captured.toLowerCase();
+
+        // ✅ Avoid drops that result in check
+        if ( isInCheck( 'sente', tempBoard ) ) continue;
 
         const putsOpponentInCheck = isInCheck( 'gote', tempBoard );
 
@@ -813,27 +834,43 @@ const ShogiBoard = () => {
       }
     }
 
-    if ( !allMoves.length ) return;
+    if ( !allMoves.length ) {
+      console.warn( "AI has no legal moves." );
+      return;
+    }
 
     allMoves.sort( ( a, b ) => b.score - a.score );
     const bestMoves = allMoves.filter( m => m.score === allMoves[ 0 ].score );
-    const move = bestMoves[ Math.floor( Math.random() * bestMoves.length ) ];
+    const chosen = bestMoves[ Math.floor( Math.random() * bestMoves.length ) ];
 
     setTimeout( () => {
-      if ( move.type === 'drop' ) {
-        handleDropCapturedPiece( move.piece, move.to[ 0 ], move.to[ 1 ] );
+      if ( chosen.type === 'drop' ) {
+        handleDropCapturedPiece( chosen.piece, chosen.to[ 0 ], chosen.to[ 1 ] );
+        setLastMove( { from: null, to: [ chosen.to[ 0 ], chosen.to[ 1 ] ] } );
       } else {
-        movePiece( move.to[ 0 ], move.to[ 1 ], move.from[ 0 ], move.from[ 1 ] );
+        movePiece( chosen.to[ 0 ], chosen.to[ 1 ], chosen.from[ 0 ], chosen.from[ 1 ] );
+        setLastMove( { from: [ chosen.from[ 0 ], chosen.from[ 1 ] ], to: [ chosen.to[ 0 ], chosen.to[ 1 ] ] } );
       }
     }, 300 );
-  }, [ board, currentPlayer, gameOver, getPossibleMoves, movePiece, capturedSente, handleDropCapturedPiece ] );
-
+  }, [
+    board,
+    currentPlayer,
+    gameOver,
+    getPossibleMoves,
+    capturedSente,
+    shouldPromote,
+    isInCheck,
+    isVictory,
+    movePiece,
+    handleDropCapturedPiece,
+    scoreMove
+  ] );
 
   useEffect( () => {
     if ( vsAI && currentPlayer === 'sente' ) {
       performAIMove();
     }
-  }, [ currentPlayer, vsAI, performAIMove ] );
+  }, [ currentPlayer, vsAI, performAIMove, setLastMove ] );
 
 
   // Undo the last move
@@ -857,6 +894,7 @@ const ShogiBoard = () => {
     setCapturedSente( [ ...capturedSente ] );
     setSelectedPiece( null );
     setPossibleMoves( [] );
+
     refreshGameState( player );
   };
 
@@ -978,7 +1016,7 @@ const ShogiBoard = () => {
       {/* Left: Captured by Gote */ }
       <div className="max-w-prose bg-gray-100 p-2 flex items-center overflow-y-auto max-h-fit">
 
-        <div className="float-start flex-wrap flex-col mx-auto w-full">
+        <div className="flex float-start flex-wrap flex-col mx-auto w-fit">
           <h3 className="text-lg font-bold mb-2">Captured by Gote</h3>
           { capturedGote.map( ( piece, index ) => (
             <Image
@@ -987,7 +1025,7 @@ const ShogiBoard = () => {
               alt={ piece }
               width={ 48 }
               height={ 48 }
-              className="cursor-pointer mb-1"
+              className="cursor-pointer mb-1 object-scale-down object-center "
               onClick={ () => {
                 setSelectedPiece( { piece, isCaptured: true } );
                 setPossibleMoves( getDropLocations( piece, board ) );
@@ -999,6 +1037,14 @@ const ShogiBoard = () => {
 
       {/* Middle: Shogi Board */ }
       <div className="flex flex-col items-center justify-start p-4">
+        { lastMove && (
+          <div className="mt-2 text-sm text-gray-700 font-mono">
+            Last move: { lastMove.from
+              ? `(${ lastMove.from[ 0 ] },${ lastMove.from[ 1 ] }) → (${ lastMove.to[ 0 ] },${ lastMove.to[ 1 ] })`
+              : `Drop at (${ lastMove.to[ 0 ] },${ lastMove.to[ 1 ] })` }
+          </div>
+        ) }
+
         <h1 className="text-2xl mb-4 font-bold">
           Current Player: { currentPlayer }
           { isInCheck( currentPlayer ) && ` (in check)` }
@@ -1009,21 +1055,26 @@ const ShogiBoard = () => {
             row.map( ( piece, y ) => (
               <div
                 key={ `${ x }-${ y }` }
-                className={ `cell w-full aspect-square border border-gray-300 flex items-center justify-center ${ Array.isArray( possibleMoves ) &&
-                  possibleMoves.some( ( [ px, py ] ) => px === x && py === y )
-                  ? 'highlight'
-                  : ''
-                  }` }
+                className={ `cell w-full aspect-square border border-gray-300 flex items-center justify-center relative 
+                  ${ possibleMoves.some( ( [ px, py ] ) => px === x && py === y ) ? 'highlight' : '' }
+                  ${ lastMove?.to?.[ 0 ] === x && lastMove?.to?.[ 1 ] === y ? 'bg-yellow-200' : '' }
+                  ${ lastMove?.from?.[ 0 ] === x && lastMove?.from?.[ 1 ] === y ? 'bg-yellow-100' : '' }` }
                 onClick={ () => handleSquareClick( x, y ) }
               >
+
                 { piece !== ' ' && (
-                  <Image
-                    className={ `object-contain ${ piece === piece.toLowerCase() ? 'rotate-180' : '' }` }
-                    src={ pieceImages[ piece ] }
-                    alt={ piece }
-                    width={ 48 }
-                    height={ 48 }
-                  />
+                  <div className='relative group'>
+                    <Image
+                      className={ `object-contain ${ piece === piece.toLowerCase() ? 'rotate-180' : '' }` }
+                      src={ pieceImages[ piece ] }
+                      alt={ piece }
+                      width={ 48 }
+                      height={ 48 }
+                    />
+                    <div className="absolute z-50 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-90 transition-all duration-200 -top-8 left-1/2 -translate-x-1/2 pointer-events-none whitespace-nowrap">
+                      { pieceNames[ piece.replace( '+', '' ).toLowerCase() ] || piece }
+                    </div>
+                  </div>
                 ) }
               </div>
             ) )
@@ -1063,7 +1114,7 @@ const ShogiBoard = () => {
       {/* Right: Captured by Sente */ }
       <div className="max-w-prose bg-gray-100 p-2 flex items-center overflow-y-auto max-h-fit">
 
-        <div className="flex-wrap float-end flex-col mx-auto w-full">
+        <div className="flex flex-wrap float-end flex-col mx-auto w-full">
           <h3 className="text-lg font-bold mb-2">Captured by Sente</h3>
           { capturedSente.map( ( piece, index ) => (
             <Image
@@ -1072,7 +1123,7 @@ const ShogiBoard = () => {
               alt={ piece }
               width={ 48 }
               height={ 48 }
-              className="cursor-pointer mb-1"
+              className="cursor-pointer mb-1 object-scale-down object-center"
               onClick={ () => {
                 setSelectedPiece( { piece, isCaptured: true } );
                 setPossibleMoves( getDropLocations( piece, board ) );
