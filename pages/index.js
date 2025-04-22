@@ -59,6 +59,7 @@ const goldMovement = [
 const ShogiBoard = () => {
   // State management
   const [ board, setBoard ] = useState( initialBoard );
+  const [ pieces, setPieces ] = useState( {} );
   const [ currentPlayer, setCurrentPlayer ] = useState( 'gote' ); // Gote starts
   const [ selectedPiece, setSelectedPiece ] = useState( null ); // Currently selected piece
   const [ possibleMoves, setPossibleMoves ] = useState( [] ); // Legal moves for selected piece
@@ -66,10 +67,14 @@ const ShogiBoard = () => {
   const [ capturedSente, setCapturedSente ] = useState( [] ); // Pieces captured by Sente
   const [ moveHistory, setMoveHistory ] = useState( [] ); // Move history for undo/redo
   const [ undoIndex, setUndoIndex ] = useState( 0 ); // Current position in move history
+  const [ vsAI, setVsAI ] = useState( true );
+  const [ gameOver, setGameOver ] = useState( false );
+
+
   const BOARD_SIZE = 9;
 
   // Populate pieces with initial metadata
-  useRef( () => {
+  useEffect( () => {
     const initializePieces = () => {
       const initialPieces = {};
       initialBoard.forEach( ( row, x ) => {
@@ -77,7 +82,7 @@ const ShogiBoard = () => {
           if ( piece !== ' ' ) {
             initialPieces[ `${ x }-${ y }` ] = {
               type: piece,
-              state: 'active', // Tracks if piece is "active" or "captured"
+              state: 'active',
               position: { x, y }
             };
           }
@@ -86,7 +91,8 @@ const ShogiBoard = () => {
       setPieces( initialPieces );
     };
     initializePieces();
-  }, [ initialBoard ] );
+  }, [] );
+
 
   // Select a piece on the board
   const selectPiece = ( x, y ) => {
@@ -403,21 +409,24 @@ const ShogiBoard = () => {
     return possibleMoves;
   }, [] );
 
-  const movePiece = ( targetX, targetY ) => {
-    if (
-      !selectedPiece ||
-      !possibleMoves.some( ( [ px, py ] ) => px === targetX && py === targetY )
-    ) return;
+  const movePiece = ( targetX, targetY, fromX = null, fromY = null ) => {
+    const pieceData = fromX !== null ? { x: fromX, y: fromY, piece: board[ fromX ][ fromY ] } : selectedPiece;
+    if ( !pieceData ) return;
 
-    const { x, y, piece } = selectedPiece;
-    const updatedBoard = board.map( r => [ ...r ] );
+    const { x, y, piece } = pieceData;
 
-    // 🔥 Save game state BEFORE the move happens
+    const legalMoves = getPossibleMoves( piece, x, y, board );
+    const isLegal = legalMoves.some( ( [ px, py ] ) => px === targetX && py === targetY );
+    if ( !isLegal ) return;
+
+    const updatedBoard = board.map( row => [ ...row ] );
+
+    // Save state
     setMoveHistory( [
       ...moveHistory.slice( 0, undoIndex ),
       {
         type: 'move',
-        board: board.map( r => [ ...r ] ),
+        board: board.map( row => [ ...row ] ),
         player: currentPlayer,
         capturedGote: [ ...capturedGote ],
         capturedSente: [ ...capturedSente ]
@@ -425,30 +434,25 @@ const ShogiBoard = () => {
     ] );
     setUndoIndex( undoIndex + 1 );
 
-    // Capture logic
-    const capturedPiece = updatedBoard[ targetX ][ targetY ];
-    if ( capturedPiece !== ' ' ) {
-      const norm = capturedPiece.replace( '+', '' );
+    // Capture
+    const target = updatedBoard[ targetX ][ targetY ];
+    if ( target !== ' ' ) {
+      const normalized = target.replace( '+', '' );
       if ( currentPlayer === 'gote' ) {
-        setCapturedGote( [ ...capturedGote, norm.toLowerCase() ] );
+        setCapturedGote( [ ...capturedGote, normalized.toLowerCase() ] );
       } else {
-        setCapturedSente( [ ...capturedSente, norm.toUpperCase() ] );
+        setCapturedSente( [ ...capturedSente, normalized.toUpperCase() ] );
       }
     }
 
     updatedBoard[ x ][ y ] = ' ';
-
-    if ( shouldPromote( piece, targetX ) ) {
-      const promote = window.confirm( 'Do you want to promote this piece?' );
-      updatedBoard[ targetX ][ targetY ] = promote && !piece.includes( '+' ) ? piece + '+' : piece;
+    if ( shouldPromote( piece, targetX ) && !piece.includes( '+' ) ) {
+      updatedBoard[ targetX ][ targetY ] = piece + '+';
     } else {
       updatedBoard[ targetX ][ targetY ] = piece;
     }
 
-    if ( isInCheck( currentPlayer, updatedBoard ) ) {
-      alert( "Invalid move: you cannot leave your king in check." );
-      return;
-    }
+    if ( isInCheck( currentPlayer, updatedBoard ) ) return;
 
     setBoard( updatedBoard );
     setCurrentPlayer( currentPlayer === 'gote' ? 'sente' : 'gote' );
@@ -460,7 +464,6 @@ const ShogiBoard = () => {
       resetGame();
     }
   };
-
 
   // Determine if a piece should promote based on its type and position
   const shouldPromote = ( piece, x ) => {
@@ -530,10 +533,12 @@ const ShogiBoard = () => {
     // Check if either king is missing
     if ( !goteKingPosition ) {
       alert( "Sente wins! Gote's king is missing." );
+      setGameOver( true );
       return true; // Game over, Gote's king is missing
     }
     if ( !senteKingPosition ) {
       alert( "Gote wins! Sente's king is missing." );
+      setGameOver( true );
       return true; // Game over, Sente's king is missing
     }
 
@@ -563,7 +568,7 @@ const ShogiBoard = () => {
     }
 
     alert( `Checkmate! ${ player === 'gote' ? 'Sente' : 'Gote' } wins!` );
-    resetGame();
+    setGameOver( true );
     return true;
   };
 
@@ -713,6 +718,124 @@ const ShogiBoard = () => {
     if ( isCheckmate( player ) || isStalemate( player ) ) return;
   };
 
+  const pieceValue = {
+    p: 1, l: 3, n: 3, s: 4, g: 5, b: 7, r: 7, k: 999,
+    'p+': 5, 'l+': 5, 'n+': 5, 's+': 5, 'b+': 9, 'r+': 9
+  };
+
+  const evaluateBoard = ( board ) => {
+    let score = 0;
+    for ( let i = 0; i < 9; i++ ) {
+      for ( let j = 0; j < 9; j++ ) {
+        const piece = board[ i ][ j ];
+        if ( piece && piece !== ' ' ) {
+          const value = pieceValue[ piece.replace( '+', '' ).toLowerCase() ] || 0;
+          score += piece === piece.toLowerCase() ? value : -value;
+        }
+      }
+    }
+    return score;
+  };
+
+  const scoreMove = ( { piece, captured, promotes, putsOpponentInCheck } ) => {
+    const val = pieceValue[ piece.replace( '+', '' ).toLowerCase() ] || 0;
+    const capturedVal = captured ? ( pieceValue[ captured.replace( '+', '' ).toLowerCase() ] || 0 ) : 0;
+    let score = capturedVal - val * 0.5; // Penalize bad trades
+    if ( promotes ) score += 1.5;
+    if ( putsOpponentInCheck ) score += 2;
+    return score;
+  };
+
+
+  const performAIMove = useCallback( () => {
+    if ( currentPlayer !== 'sente' || gameOver ) return;
+
+    const generateBoardClone = () => board.map( row => [ ...row ] );
+    const allMoves = [];
+
+    for ( let x = 0; x < 9; x++ ) {
+      for ( let y = 0; y < 9; y++ ) {
+        const piece = board[ x ][ y ];
+        if ( !piece || piece !== piece.toLowerCase() ) continue;
+
+        const legalMoves = getPossibleMoves( piece, x, y, board );
+
+        for ( const [ targetX, targetY ] of legalMoves ) {
+          const tempBoard = generateBoardClone();
+          const captured = tempBoard[ targetX ][ targetY ];
+          const willPromote = shouldPromote( piece, targetX ) && !piece.includes( '+' );
+          const movePiece = willPromote ? piece + '+' : piece;
+
+          tempBoard[ x ][ y ] = ' ';
+          tempBoard[ targetX ][ targetY ] = movePiece;
+
+          const putsOpponentInCheck = isInCheck( 'gote', tempBoard );
+          const score = scoreMove( {
+            piece,
+            captured,
+            promotes: willPromote,
+            putsOpponentInCheck
+          } );
+
+          allMoves.push( {
+            type: 'move',
+            from: [ x, y ],
+            to: [ targetX, targetY ],
+            piece,
+            score
+          } );
+        }
+      }
+    }
+
+    // Drop logic
+    for ( const captured of capturedSente ) {
+      const dropLocations = getDropLocations( captured, board );
+      for ( const [ dx, dy ] of dropLocations ) {
+        const tempBoard = generateBoardClone();
+        tempBoard[ dx ][ dy ] = captured.toLowerCase();
+
+        const putsOpponentInCheck = isInCheck( 'gote', tempBoard );
+
+        const score = scoreMove( {
+          piece: captured,
+          captured: null,
+          promotes: false,
+          putsOpponentInCheck
+        } );
+
+        allMoves.push( {
+          type: 'drop',
+          to: [ dx, dy ],
+          piece: captured,
+          score
+        } );
+      }
+    }
+
+    if ( !allMoves.length ) return;
+
+    allMoves.sort( ( a, b ) => b.score - a.score );
+    const bestMoves = allMoves.filter( m => m.score === allMoves[ 0 ].score );
+    const move = bestMoves[ Math.floor( Math.random() * bestMoves.length ) ];
+
+    setTimeout( () => {
+      if ( move.type === 'drop' ) {
+        handleDropCapturedPiece( move.piece, move.to[ 0 ], move.to[ 1 ] );
+      } else {
+        movePiece( move.to[ 0 ], move.to[ 1 ], move.from[ 0 ], move.from[ 1 ] );
+      }
+    }, 300 );
+  }, [ board, currentPlayer, gameOver, getPossibleMoves, movePiece, capturedSente, handleDropCapturedPiece ] );
+
+
+  useEffect( () => {
+    if ( vsAI && currentPlayer === 'sente' ) {
+      performAIMove();
+    }
+  }, [ currentPlayer, vsAI, performAIMove ] );
+
+
   // Undo the last move
   const handleUndo = () => {
     if ( undoIndex <= 0 || !moveHistory[ undoIndex - 1 ] ) {
@@ -765,6 +888,7 @@ const ShogiBoard = () => {
 
   // Reset the entire game (already included but reiterated here)
   const resetGame = () => {
+    setGameOver( false );
     setBoard( initialBoard );
     setCurrentPlayer( 'gote' );
     setSelectedPiece( null );
@@ -904,6 +1028,14 @@ const ShogiBoard = () => {
               </div>
             ) )
           ) }
+        </div>
+        <div className=" mx-auto mb-4">
+          <button
+            onClick={ () => setVsAI( prev => !prev ) }
+            className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
+          >
+            { vsAI ? 'Switch to Player vs Player' : 'Switch to Play vs AI' }
+          </button>
         </div>
 
         <div className="mt-4 flex justify-between space-x-4">
