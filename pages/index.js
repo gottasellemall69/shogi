@@ -101,6 +101,23 @@ const ShogiBoard = () => {
     initializePieces();
   }, [] );
 
+  const getPieceValue = ( piece ) => {
+    const normalized = piece.replace( '+', '' ).toLowerCase();
+    return pieceValue[ normalized ] || 0;
+  };
+
+  const groupAndSortCaptured = ( capturedArray ) => {
+    const grouped = {};
+
+    for ( const piece of capturedArray ) {
+      const normalized = piece.replace( '+', '' );
+      grouped[ normalized ] = ( grouped[ normalized ] || 0 ) + 1;
+    }
+
+    return Object.entries( grouped )
+      .sort( ( a, b ) => getPieceValue( b[ 0 ] ) - getPieceValue( a[ 0 ] ) )
+      .map( ( [ piece, count ] ) => ( { piece, count } ) );
+  };
 
   // Select a piece on the board
   const selectPiece = ( x, y ) => {
@@ -1012,27 +1029,36 @@ const ShogiBoard = () => {
   };
 
   return (
-    <div className="flex flex-row w-full min-h-screen h-fit overflow-hidden">
+    <div className="flex flex-row w-full min-h-screen object-center justify-self-center place-self-center mx-auto overflow-hidden">
       {/* Left: Captured by Gote */ }
       <div className="max-w-prose bg-gray-100 p-2 flex items-center overflow-y-auto max-h-fit">
 
         <div className="flex float-start flex-wrap flex-col mx-auto w-fit">
           <h3 className="text-lg font-bold mb-2">Captured by Gote</h3>
-          { capturedGote.map( ( piece, index ) => (
-            <Image
-              key={ index }
-              src={ pieceImages[ piece.toLowerCase() ] }
-              alt={ piece }
-              width={ 48 }
-              height={ 48 }
-              className="cursor-pointer mb-1 object-scale-down object-center "
-              onClick={ () => {
-                setSelectedPiece( { piece, isCaptured: true } );
-                setPossibleMoves( getDropLocations( piece, board ) );
-              } }
-            />
+          { groupAndSortCaptured( capturedGote ).map( ( { piece, count } ) => (
+            <div key={ piece } className="relative mb-1 w-fit text-center group">
+              <Image
+                src={ pieceImages[ piece.toLowerCase() ] }
+                alt={ piece }
+                width={ 48 }
+                height={ 48 }
+                className="cursor-pointer object-scale-down object-center"
+                onClick={ () => {
+                  setSelectedPiece( { piece, isCaptured: true } );
+                  setPossibleMoves( getDropLocations( piece, board ) );
+                } }
+              />
+              <span className="text-xs text-center block font-semibold">×{ count }</span>
+
+              {/* Hover card - right aligned */ }
+              <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 z-50 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-90 transition-all duration-200 whitespace-nowrap">
+                { pieceNames[ piece.toLowerCase() ] || piece }
+              </div>
+            </div>
           ) ) }
+
         </div>
+
       </div>
 
       {/* Middle: Shogi Board */ }
@@ -1082,6 +1108,7 @@ const ShogiBoard = () => {
         </div>
         <div className=" mx-auto mb-4">
           <button
+            type='button'
             onClick={ () => setVsAI( prev => !prev ) }
             className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
           >
@@ -1091,18 +1118,21 @@ const ShogiBoard = () => {
 
         <div className="mt-4 flex justify-between space-x-4">
           <button
+            type='button'
             className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
             onClick={ handleUndo }
           >
             Undo
           </button>
           <button
+            type='button'
             className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
             onClick={ handleRedo }
           >
             Redo
           </button>
           <button
+            type='reset'
             className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
             onClick={ resetGame }
           >
@@ -1113,24 +1143,31 @@ const ShogiBoard = () => {
 
       {/* Right: Captured by Sente */ }
       <div className="max-w-prose bg-gray-100 p-2 flex items-center overflow-y-auto max-h-fit">
-
         <div className="flex flex-wrap float-end flex-col mx-auto w-full">
           <h3 className="text-lg font-bold mb-2">Captured by Sente</h3>
-          { capturedSente.map( ( piece, index ) => (
-            <Image
-              key={ index }
-              src={ pieceImages[ piece.toUpperCase() ] }
-              alt={ piece }
-              width={ 48 }
-              height={ 48 }
-              className="cursor-pointer mb-1 object-scale-down object-center"
-              onClick={ () => {
-                setSelectedPiece( { piece, isCaptured: true } );
-                setPossibleMoves( getDropLocations( piece, board ) );
-              } }
-            />
+          { groupAndSortCaptured( capturedSente ).map( ( { piece, count } ) => (
+            <div key={ piece } className="relative mb-1 w-fit text-center group">
+              <Image
+                src={ pieceImages[ piece.toUpperCase() ] }
+                alt={ piece }
+                width={ 48 }
+                height={ 48 }
+                className="cursor-pointer object-scale-down object-center"
+                onClick={ () => {
+                  setSelectedPiece( { piece, isCaptured: true } );
+                  setPossibleMoves( getDropLocations( piece, board ) );
+                } }
+              />
+              <span className="text-xs text-center block font-semibold">×{ count }</span>
+
+              {/* Hover card - left aligned */ }
+              <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2 z-50 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-90 transition-all duration-200 whitespace-nowrap">
+                { pieceNames[ piece.toLowerCase() ] || piece }
+              </div>
+            </div>
           ) ) }
         </div>
+
       </div>
     </div>
   );
