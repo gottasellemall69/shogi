@@ -472,10 +472,36 @@ const ShogiBoard = () => {
 
     updatedBoard[ x ][ y ] = ' ';
     if ( shouldPromote( piece, targetX ) && !piece.includes( '+' ) ) {
-      updatedBoard[ targetX ][ targetY ] = piece + '+';
+      const isPromotionMandatory = ( piece, x ) => {
+        const isGote = piece === piece.toUpperCase();
+        const base = piece.toLowerCase();
+
+        if ( ![ 'p', 'l', 'n' ].includes( base ) ) return false;
+
+        // Gote: row 0; Sente: row 8
+        return ( isGote && x === 0 ) || ( !isGote && x === 8 );
+      };
+      const isMandatory = isPromotionMandatory( piece, targetX );
+      if ( isMandatory ) {
+        updatedBoard[ targetX ][ targetY ] = piece + '+';
+      } else {
+        // Ask player if they want to promote
+        const isHumanTurn = ( vsAI && currentPlayer === 'gote' ) || !vsAI;
+
+        if ( isHumanTurn ) {
+          const confirmPromotion = window.confirm( `Promote ${ pieceNames[ piece.toLowerCase() ] || piece }?` );
+          updatedBoard[ targetX ][ targetY ] = confirmPromotion ? piece + '+' : piece;
+        } else {
+          updatedBoard[ targetX ][ targetY ] = piece;
+        }
+
+      }
     } else {
       updatedBoard[ targetX ][ targetY ] = piece;
     }
+
+
+
 
     if ( isInCheck( currentPlayer, updatedBoard ) ) return;
 
@@ -868,7 +894,7 @@ const ShogiBoard = () => {
         movePiece( chosen.to[ 0 ], chosen.to[ 1 ], chosen.from[ 0 ], chosen.from[ 1 ] );
         setLastMove( { from: [ chosen.from[ 0 ], chosen.from[ 1 ] ], to: [ chosen.to[ 0 ], chosen.to[ 1 ] ] } );
       }
-    }, 300 );
+    }, 100 );
   }, [
     board,
     currentPlayer,
@@ -911,7 +937,7 @@ const ShogiBoard = () => {
     setCapturedSente( [ ...capturedSente ] );
     setSelectedPiece( null );
     setPossibleMoves( [] );
-
+    setLastMove( null );
     refreshGameState( player );
   };
 
@@ -937,6 +963,7 @@ const ShogiBoard = () => {
     setCapturedSente( [ ...capturedSente ] );
     setSelectedPiece( null );
     setPossibleMoves( [] );
+    setLastMove( null );
     refreshGameState( player );
   };
 
@@ -952,7 +979,9 @@ const ShogiBoard = () => {
     setCapturedSente( [] );
     setMoveHistory( [] );
     setUndoIndex( 0 );
+    setLastMove( null );
   };
+
 
   const [ promotedPieces, setPromotedPieces ] = useState( new Set() );
 
@@ -1029,11 +1058,11 @@ const ShogiBoard = () => {
   };
 
   return (
-    <div className="flex flex-row w-full min-h-screen object-center justify-self-center place-self-center mx-auto overflow-hidden">
+    <div className="flex flex-wrap flex-row w-full min-h-full object-center justify-self-center place-self-center mx-auto overflow-hidden">
       {/* Left: Captured by Gote */ }
-      <div className="max-w-prose bg-gray-100 p-2 flex items-center overflow-y-auto max-h-fit">
+      <div className="bg-gray-100 p-2 flex flex-wrap items-center overflow-y-auto max-h-fit">
 
-        <div className="flex float-start flex-wrap flex-col mx-auto w-fit">
+        <div className="flex float-start flex-wrap flex-row sm:flex-col mx-auto w-fit">
           <h3 className="text-lg font-bold mb-2">Captured by Gote</h3>
           { groupAndSortCaptured( capturedGote ).map( ( { piece, count } ) => (
             <div key={ piece } className="relative mb-1 w-fit text-center group">
@@ -1062,31 +1091,32 @@ const ShogiBoard = () => {
       </div>
 
       {/* Middle: Shogi Board */ }
-      <div className="flex flex-col items-center justify-start p-4">
+      <div className="flex flex-wrap flex-col items-center justify-start p-4">
         { lastMove && (
-          <div className="mt-2 text-sm text-gray-700 font-mono">
+          <div className="mt-2 m-2 p-2 text-sm text-gray-700 font-mono">
             Last move: { lastMove.from
               ? `(${ lastMove.from[ 0 ] },${ lastMove.from[ 1 ] }) → (${ lastMove.to[ 0 ] },${ lastMove.to[ 1 ] })`
               : `Drop at (${ lastMove.to[ 0 ] },${ lastMove.to[ 1 ] })` }
           </div>
         ) }
 
-        <h1 className="text-2xl mb-4 font-bold">
+        <h1 className="text-2xl mb-4 p-2 m-2 font-bold">
           Current Player: { currentPlayer }
           { isInCheck( currentPlayer ) && ` (in check)` }
         </h1>
 
-        <div className={ `board w-100vw` }>
+        <div className={ `board w-full` }>
           { board.map( ( row, x ) =>
             row.map( ( piece, y ) => (
               <div
                 key={ `${ x }-${ y }` }
                 className={ `cell w-full aspect-square border border-gray-300 flex items-center justify-center relative 
-                  ${ possibleMoves.some( ( [ px, py ] ) => px === x && py === y ) ? 'highlight' : '' }
-                  ${ lastMove?.to?.[ 0 ] === x && lastMove?.to?.[ 1 ] === y ? 'bg-yellow-200' : '' }
-                  ${ lastMove?.from?.[ 0 ] === x && lastMove?.from?.[ 1 ] === y ? 'bg-yellow-100' : '' }` }
+    ${ possibleMoves.some( ( [ px, py ] ) => px === x && py === y ) ? 'highlight' : '' }
+    ${ lastMove?.to?.[ 0 ] === x && lastMove?.to?.[ 1 ] === y && currentPlayer === 'gote' ? 'pulse-red' : '' }
+    ${ lastMove?.from?.[ 0 ] === x && lastMove?.from?.[ 1 ] === y && currentPlayer === 'gote' ? 'pulse-red' : '' }` }
                 onClick={ () => handleSquareClick( x, y ) }
               >
+
 
                 { piece !== ' ' && (
                   <div className='relative group'>
@@ -1106,7 +1136,7 @@ const ShogiBoard = () => {
             ) )
           ) }
         </div>
-        <div className=" mx-auto mb-4">
+        <div className="mt-5 mx-auto mb-4">
           <button
             type='button'
             onClick={ () => setVsAI( prev => !prev ) }
@@ -1142,8 +1172,8 @@ const ShogiBoard = () => {
       </div>
 
       {/* Right: Captured by Sente */ }
-      <div className="max-w-prose bg-gray-100 p-2 flex items-center overflow-y-auto max-h-fit">
-        <div className="flex flex-wrap float-end flex-col mx-auto w-full">
+      <div className="w-fit bg-gray-100 p-2 flex flex-wrap items-center overflow-y-auto max-h-fit">
+        <div className="flex flex-wrap float-end flex-row sm:flex-col mx-auto w-full">
           <h3 className="text-lg font-bold mb-2">Captured by Sente</h3>
           { groupAndSortCaptured( capturedSente ).map( ( { piece, count } ) => (
             <div key={ piece } className="relative mb-1 w-fit text-center group">
