@@ -434,7 +434,7 @@ const ShogiBoard = () => {
     return possibleMoves;
   }, [] );
 
-  const movePiece = ( targetX, targetY, fromX = null, fromY = null ) => {
+  const movePiece = ( targetX, targetY, fromX = null, fromY = null, forcePiece = null ) => {
     const pieceData = fromX !== null ? { x: fromX, y: fromY, piece: board[ fromX ][ fromY ] } : selectedPiece;
     if ( !pieceData ) return;
 
@@ -471,37 +471,35 @@ const ShogiBoard = () => {
     }
 
     updatedBoard[ x ][ y ] = ' ';
-    if ( shouldPromote( piece, targetX ) && !piece.includes( '+' ) ) {
+
+    // 👇 Use forcePiece directly if provided (AI path)
+    if ( forcePiece ) {
+      updatedBoard[ targetX ][ targetY ] = forcePiece;
+    } else if ( shouldPromote( piece, targetX ) && !piece.includes( '+' ) ) {
       const isPromotionMandatory = ( piece, x ) => {
         const isGote = piece === piece.toUpperCase();
         const base = piece.toLowerCase();
-
         if ( ![ 'p', 'l', 'n' ].includes( base ) ) return false;
-
-        // Gote: row 0; Sente: row 8
         return ( isGote && x === 0 ) || ( !isGote && x === 8 );
       };
+
       const isMandatory = isPromotionMandatory( piece, targetX );
+
       if ( isMandatory ) {
         updatedBoard[ targetX ][ targetY ] = piece + '+';
       } else {
-        // Ask player if they want to promote
+        // Only ask the human player
         const isHumanTurn = ( vsAI && currentPlayer === 'gote' ) || !vsAI;
-
         if ( isHumanTurn ) {
           const confirmPromotion = window.confirm( `Promote ${ pieceNames[ piece.toLowerCase() ] || piece }?` );
           updatedBoard[ targetX ][ targetY ] = confirmPromotion ? piece + '+' : piece;
         } else {
           updatedBoard[ targetX ][ targetY ] = piece;
         }
-
       }
     } else {
       updatedBoard[ targetX ][ targetY ] = piece;
     }
-
-
-
 
     if ( isInCheck( currentPlayer, updatedBoard ) ) return;
 
@@ -511,26 +509,24 @@ const ShogiBoard = () => {
     setPossibleMoves( [] );
     setLastMove( { from: [ x, y ], to: [ targetX, targetY ] } );
 
-
     if ( isVictory() ) {
       alert( `${ currentPlayer === 'gote' ? 'Sente' : 'Gote' } wins!` );
       resetGame();
     }
   };
 
-  // Determine if a piece should promote based on its type and position
   const shouldPromote = ( piece, x ) => {
-    if ( !piece || piece.includes( '+' ) ) return false; // Already promoted
-    if ( piece.toLowerCase() === 'k' || piece.toLowerCase() === 'g' ) return false; // Kings and Gold Generals don't promote
+    if ( !piece || piece.includes( '+' ) ) return false;
+    if ( piece.toLowerCase() === 'k' || piece.toLowerCase() === 'g' ) return false;
 
     const isGote = piece === piece.toUpperCase();
 
-    // Mandatory promotion for Pawns, Lances, and Knights when reaching last ranks
+    // Forced promotion (Pawn, Lance, Knight on final rows)
     if ( [ 'p', 'l', 'n' ].includes( piece.toLowerCase() ) ) {
       if ( ( isGote && x === 0 ) || ( !isGote && x === 8 ) ) return true;
     }
 
-    // Optional promotion when entering the promotion zone (3 farthest ranks)
+    // Promotion zone: top 3 rows for Sente, bottom 3 for Gote
     return isGote ? x <= 2 : x >= 6;
   };
 
@@ -776,37 +772,29 @@ const ShogiBoard = () => {
     'p+': 5, 'l+': 5, 'n+': 5, 's+': 5, 'b+': 9, 'r+': 9
   };
 
-  const evaluateBoard = ( board ) => {
-    let score = 0;
-    for ( let i = 0; i < 9; i++ ) {
-      for ( let j = 0; j < 9; j++ ) {
-        const piece = board[ i ][ j ];
-        if ( piece && piece !== ' ' ) {
-          const value = pieceValue[ piece.replace( '+', '' ).toLowerCase() ] || 0;
-          score += piece === piece.toLowerCase() ? value : -value;
-        }
-      }
-    }
-    return score;
-  };
-
   const scoreMove = ( { piece, captured, promotes, putsOpponentInCheck } ) => {
     const val = pieceValue[ piece.replace( '+', '' ).toLowerCase() ] || 0;
     const capturedVal = captured ? ( pieceValue[ captured.replace( '+', '' ).toLowerCase() ] || 0 ) : 0;
 
     let score = 0;
     score += capturedVal;
-    score += promotes ? 1.5 : 0;
+    score += promotes ? 2.5 : 0;
     score += putsOpponentInCheck ? 2 : 0;
-    score -= val * 0.2; // discourage trading down
+    score -= val * 0.4; // discourage trading down
 
     return score;
   };
 
-  const performAIMove = useCallback( () => {
+  const performAIMove = useCallback( async () => {
     if ( currentPlayer !== 'sente' || gameOver ) return;
 
-    const generateBoardClone = () => board.map( row => [ ...row ] );
+    const cloneBoard = ( b ) => {
+      const newBoard = new Array( 9 );
+      for ( let i = 0; i < 9; i++ ) {
+        newBoard[ i ] = b[ i ].slice( 0 );
+      }
+      return newBoard;
+    };
 
     const allMoves = [];
 
@@ -818,32 +806,56 @@ const ShogiBoard = () => {
         const legalMoves = getPossibleMoves( piece, x, y, board );
 
         for ( const [ targetX, targetY ] of legalMoves ) {
-          const tempBoard = generateBoardClone();
-          const captured = tempBoard[ targetX ][ targetY ];
-          const willPromote = shouldPromote( piece, targetX ) && !piece.includes( '+' );
-          const promotedPiece = willPromote ? piece + '+' : piece;
+          const captured = board[ targetX ][ targetY ];
+          const canPromote = shouldPromote( piece, targetX ) && !piece.includes( '+' );
 
-          tempBoard[ x ][ y ] = ' ';
-          tempBoard[ targetX ][ targetY ] = promotedPiece;
+          // Try without promotion
+          const tempNoPromo = cloneBoard( board );
+          tempNoPromo[ x ][ y ] = ' ';
+          tempNoPromo[ targetX ][ targetY ] = piece;
 
-          // ✅ Filter out self-checking moves
-          if ( isInCheck( 'sente', tempBoard ) ) continue;
+          if ( isInCheck( 'sente', tempNoPromo ) ) continue;
 
-          const putsOpponentInCheck = isInCheck( 'gote', tempBoard );
-
-          const score = scoreMove( {
+          const noPromoScore = scoreMove( {
             piece,
             captured,
-            promotes: willPromote,
-            putsOpponentInCheck
+            promotes: false,
+            putsOpponentInCheck: isInCheck( 'gote', tempNoPromo )
           } );
+
+          let bestScore = noPromoScore;
+          let bestPromote = false;
+
+          // Try with promotion
+          if ( canPromote ) {
+            const promoted = piece + '+';
+            const tempPromo = cloneBoard( board );
+            tempPromo[ x ][ y ] = ' ';
+            tempPromo[ targetX ][ targetY ] = promoted;
+
+            if ( !isInCheck( 'sente', tempPromo ) ) {
+              const promoScore = scoreMove( {
+                piece,
+                captured,
+                promotes: true,
+                putsOpponentInCheck: isInCheck( 'gote', tempPromo )
+              } );
+
+              if ( promoScore > bestScore ) {
+                bestScore = promoScore;
+                bestPromote = true;
+              }
+            }
+          }
+
+          const finalPiece = bestPromote ? piece + '+' : piece;
 
           allMoves.push( {
             type: 'move',
             from: [ x, y ],
             to: [ targetX, targetY ],
-            piece,
-            score
+            piece: finalPiece,
+            score: bestScore
           } );
         }
       }
@@ -853,10 +865,9 @@ const ShogiBoard = () => {
     for ( const captured of capturedSente ) {
       const dropLocations = getDropLocations( captured, board );
       for ( const [ dx, dy ] of dropLocations ) {
-        const tempBoard = generateBoardClone();
+        const tempBoard = cloneBoard( board );
         tempBoard[ dx ][ dy ] = captured.toLowerCase();
 
-        // ✅ Avoid drops that result in check
         if ( isInCheck( 'sente', tempBoard ) ) continue;
 
         const putsOpponentInCheck = isInCheck( 'gote', tempBoard );
@@ -878,7 +889,7 @@ const ShogiBoard = () => {
     }
 
     if ( !allMoves.length ) {
-      console.warn( "AI has no legal moves." );
+      alert( "AI has no legal moves, checkmate! Please reset the board to continue." );
       return;
     }
 
@@ -891,8 +902,11 @@ const ShogiBoard = () => {
         handleDropCapturedPiece( chosen.piece, chosen.to[ 0 ], chosen.to[ 1 ] );
         setLastMove( { from: null, to: [ chosen.to[ 0 ], chosen.to[ 1 ] ] } );
       } else {
-        movePiece( chosen.to[ 0 ], chosen.to[ 1 ], chosen.from[ 0 ], chosen.from[ 1 ] );
-        setLastMove( { from: [ chosen.from[ 0 ], chosen.from[ 1 ] ], to: [ chosen.to[ 0 ], chosen.to[ 1 ] ] } );
+        movePiece( chosen.to[ 0 ], chosen.to[ 1 ], chosen.from[ 0 ], chosen.from[ 1 ], chosen.piece );
+        setLastMove( {
+          from: [ chosen.from[ 0 ], chosen.from[ 1 ] ],
+          to: [ chosen.to[ 0 ], chosen.to[ 1 ] ]
+        } );
       }
     }, 100 );
   }, [
@@ -906,8 +920,10 @@ const ShogiBoard = () => {
     isVictory,
     movePiece,
     handleDropCapturedPiece,
-    scoreMove
+    scoreMove,
+    setLastMove
   ] );
+
 
   useEffect( () => {
     if ( vsAI && currentPlayer === 'sente' ) {
@@ -980,15 +996,6 @@ const ShogiBoard = () => {
     setMoveHistory( [] );
     setUndoIndex( 0 );
     setLastMove( null );
-  };
-
-
-  const [ promotedPieces, setPromotedPieces ] = useState( new Set() );
-
-  const handlePromotion = () => ( piece, x, y, updatedBoard ) => {
-    const promotedPiece = piece + '+';
-    updatedBoard[ x ][ y ] = promotedPiece;
-    setBoard( updatedBoard );
   };
 
   const handleSquareClick = ( x, y ) => {
