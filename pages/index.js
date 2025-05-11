@@ -127,6 +127,7 @@ const ShogiBoard = () => {
   const [ lastMove, setLastMove ] = useState( null ); // { from: [x, y], to: [x, y] }
   const [ openingStep, setOpeningStep ] = useState( 0 );
   const [ matchedOpening, setMatchedOpening ] = useState( null );
+  const [ drawerOpen, setDrawerOpen ] = useState( false );
 
 
 
@@ -490,27 +491,24 @@ const ShogiBoard = () => {
     if ( !pieceData ) return;
 
     const { x, y, piece } = pieceData;
-
     const legalMoves = getPossibleMoves( piece, x, y, board );
     const isLegal = legalMoves.some( ( [ px, py ] ) => px === targetX && py === targetY );
     if ( !isLegal ) return;
 
     const updatedBoard = board.map( row => [ ...row ] );
 
-    // Save state
-    setMoveHistory( [
-      ...moveHistory.slice( 0, undoIndex ),
-      {
-        type: 'move',
-        board: board.map( row => [ ...row ] ),
-        player: currentPlayer,
-        capturedGote: [ ...capturedGote ],
-        capturedSente: [ ...capturedSente ]
-      }
-    ] );
-    setUndoIndex( undoIndex + 1 );
+    // ⏪ Record state before move
+    const historyEntry = {
+      type: "move",
+      boardBefore: board.map( r => [ ...r ] ),
+      capturedGoteBefore: [ ...capturedGote ],
+      capturedSenteBefore: [ ...capturedSente ],
+      playerBefore: currentPlayer,
+      lastMoveBefore: lastMove,
+      openingStepBefore: openingStep
+    };
 
-    // Capture
+    // Capture logic
     const target = updatedBoard[ targetX ][ targetY ];
     if ( target !== ' ' ) {
       const normalized = target.replace( '+', '' );
@@ -523,39 +521,45 @@ const ShogiBoard = () => {
 
     updatedBoard[ x ][ y ] = ' ';
 
-    // 👇 Use forcePiece directly if provided (AI path)
+    // Promotion logic
+    let finalPiece = piece;
     if ( forcePiece ) {
-      updatedBoard[ targetX ][ targetY ] = forcePiece;
+      finalPiece = forcePiece;
     } else if ( shouldPromote( piece, x, targetX ) && !piece.includes( '+' ) ) {
-      const isPromotionMandatory = ( piece, x ) => {
+      const isMandatory = ( ( piece, x ) => {
         const isGote = piece === piece.toUpperCase();
         const base = piece.toLowerCase();
-        if ( ![ 'p', 'l', 'n' ].includes( base ) ) return false;
-        return ( isGote && x === 0 ) || ( !isGote && x === 8 );
-      };
-
-      const isMandatory = isPromotionMandatory( piece, targetX );
+        return [ 'p', 'l', 'n' ].includes( base ) &&
+          ( ( isGote && targetX === 0 ) || ( !isGote && targetX === 8 ) );
+      } )( piece, targetX );
 
       if ( isMandatory ) {
-        updatedBoard[ targetX ][ targetY ] = piece + '+';
-      } else {
-        // Only ask the human player
-        const isHumanTurn = ( vsAI && currentPlayer === 'gote' ) || !vsAI;
-        if ( isHumanTurn ) {
-          const confirmPromotion = window.confirm( `Promote ${ pieceNames[ piece.toLowerCase() ] || piece }?` );
-          updatedBoard[ targetX ][ targetY ] = confirmPromotion ? piece + '+' : piece;
-        } else {
-          updatedBoard[ targetX ][ targetY ] = piece;
-        }
+        finalPiece = piece + '+';
+      } else if ( ( vsAI && currentPlayer === 'gote' ) || !vsAI ) {
+        const confirmPromotion = window.confirm( `Promote ${ pieceNames[ piece.toLowerCase() ] || piece }?` );
+        finalPiece = confirmPromotion ? piece + '+' : piece;
       }
-    } else {
-      updatedBoard[ targetX ][ targetY ] = piece;
     }
+
+    updatedBoard[ targetX ][ targetY ] = finalPiece;
 
     if ( isInCheck( currentPlayer, updatedBoard ) ) return;
 
+    const nextPlayer = currentPlayer === 'gote' ? 'sente' : 'gote';
+
+    // ✅ Save after-move state
+    historyEntry.boardAfter = updatedBoard.map( r => [ ...r ] );
+    historyEntry.capturedGoteAfter = [ ...( currentPlayer === 'gote' ? [ ...capturedGote, target.toLowerCase() ] : capturedGote ) ];
+    historyEntry.capturedSenteAfter = [ ...( currentPlayer === 'sente' ? [ ...capturedSente, target.toUpperCase() ] : capturedSente ) ];
+    historyEntry.playerAfter = nextPlayer;
+    historyEntry.lastMoveAfter = { from: [ x, y ], to: [ targetX, targetY ] };
+    historyEntry.openingStepAfter = openingStep;
+
+    setMoveHistory( [ ...moveHistory.slice( 0, undoIndex ), historyEntry ] );
+    setUndoIndex( undoIndex + 1 );
+
     setBoard( updatedBoard );
-    setCurrentPlayer( currentPlayer === 'gote' ? 'sente' : 'gote' );
+    setCurrentPlayer( nextPlayer );
     setSelectedPiece( null );
     setPossibleMoves( [] );
     setLastMove( { from: [ x, y ], to: [ targetX, targetY ] } );
@@ -565,6 +569,7 @@ const ShogiBoard = () => {
       resetGame();
     }
   };
+
 
   const shouldPromote = ( piece, fromX, toX ) => {
     if ( !piece || piece.includes( '+' ) ) return false;
@@ -712,6 +717,7 @@ const ShogiBoard = () => {
   // Function to handle dropping a captured piece onto the board
   const handleDropCapturedPiece = ( piece, targetX, targetY ) => {
     if ( board[ targetX ][ targetY ] !== ' ' ) return;
+
     const playerCaps = currentPlayer === 'gote' ? capturedGote : capturedSente;
     if ( !playerCaps.includes( piece ) ) {
       alert( "Invalid drop: You can only drop pieces you've captured." );
@@ -719,25 +725,22 @@ const ShogiBoard = () => {
     }
 
     const updatedBoard = board.map( r => [ ...r ] );
-    updatedBoard[ targetX ][ targetY ] = currentPlayer === 'gote'
-      ? piece.toUpperCase()
-      : piece.toLowerCase();
 
-    // 🔥 Save game state BEFORE the drop
-    setMoveHistory( [
-      ...moveHistory.slice( 0, undoIndex ),
-      {
-        type: 'drop',
-        board: board.map( r => [ ...r ] ),
-        player: currentPlayer,
-        capturedGote: [ ...capturedGote ],
-        capturedSente: [ ...capturedSente ]
-      }
-    ] );
-    setUndoIndex( undoIndex + 1 );
+    // ⏪ Save previous state
+    const historyEntry = {
+      type: "drop",
+      boardBefore: board.map( r => [ ...r ] ),
+      capturedGoteBefore: [ ...capturedGote ],
+      capturedSenteBefore: [ ...capturedSente ],
+      playerBefore: currentPlayer,
+      lastMoveBefore: lastMove,
+      openingStepBefore: openingStep
+    };
 
-    // Remove piece from captured array
-    const newCaps = playerCaps.slice();
+    updatedBoard[ targetX ][ targetY ] =
+      currentPlayer === 'gote' ? piece.toUpperCase() : piece.toLowerCase();
+
+    const newCaps = [ ...playerCaps ];
     newCaps.splice( newCaps.indexOf( piece ), 1 );
     currentPlayer === 'gote'
       ? setCapturedGote( newCaps )
@@ -748,8 +751,21 @@ const ShogiBoard = () => {
       return;
     }
 
+    const nextPlayer = currentPlayer === 'gote' ? 'sente' : 'gote';
+
+    // ✅ Save after-drop state
+    historyEntry.boardAfter = updatedBoard.map( r => [ ...r ] );
+    historyEntry.capturedGoteAfter = [ ...( currentPlayer === 'gote' ? newCaps : capturedGote ) ];
+    historyEntry.capturedSenteAfter = [ ...( currentPlayer === 'sente' ? newCaps : capturedSente ) ];
+    historyEntry.playerAfter = nextPlayer;
+    historyEntry.lastMoveAfter = { from: null, to: [ targetX, targetY ] };
+    historyEntry.openingStepAfter = openingStep;
+
+    setMoveHistory( [ ...moveHistory.slice( 0, undoIndex ), historyEntry ] );
+    setUndoIndex( undoIndex + 1 );
+
     setBoard( updatedBoard );
-    setCurrentPlayer( currentPlayer === 'gote' ? 'sente' : 'gote' );
+    setCurrentPlayer( nextPlayer );
     setSelectedPiece( null );
     setPossibleMoves( [] );
 
@@ -758,6 +774,7 @@ const ShogiBoard = () => {
       resetGame();
     }
   };
+
 
 
   // Validate pawn-specific drop rules (Nifu and last-rank restriction)
@@ -1008,54 +1025,44 @@ const ShogiBoard = () => {
   // Undo the last move
   const handleUndo = () => {
     if ( undoIndex <= 0 || !moveHistory[ undoIndex - 1 ] ) {
-      alert( 'No more moves to undo.' );
+      alert( "No more moves to undo." );
       return;
     }
 
-    const {
-      board: previousBoard,
-      player,
-      capturedGote = [],
-      capturedSente = []
-    } = moveHistory[ undoIndex - 1 ];
+    const entry = moveHistory[ undoIndex - 1 ];
 
+    setBoard( entry.boardBefore.map( row => [ ...row ] ) );
+    setCapturedGote( [ ...entry.capturedGoteBefore ] );
+    setCapturedSente( [ ...entry.capturedSenteBefore ] );
+    setCurrentPlayer( entry.playerBefore );
+    setLastMove( entry.lastMoveBefore );
+    setOpeningStep( entry.openingStepBefore || 0 );
+    setMatchedOpening( null );
     setUndoIndex( undoIndex - 1 );
-    setBoard( previousBoard.map( row => [ ...row ] ) );
-    setCurrentPlayer( player );
-    setCapturedGote( [ ...capturedGote ] );
-    setCapturedSente( [ ...capturedSente ] );
     setSelectedPiece( null );
     setPossibleMoves( [] );
-    setLastMove( null );
-    refreshGameState( player );
   };
-
 
   // Redo a move that was undone
   const handleRedo = () => {
     if ( undoIndex >= moveHistory.length || !moveHistory[ undoIndex ] ) {
-      alert( 'No more moves to redo.' );
+      alert( "No more moves to redo." );
       return;
     }
 
-    const {
-      board: nextBoard,
-      player,
-      capturedGote = [],
-      capturedSente = []
-    } = moveHistory[ undoIndex ];
+    const entry = moveHistory[ undoIndex ];
 
+    setBoard( entry.boardAfter.map( row => [ ...row ] ) );
+    setCapturedGote( [ ...entry.capturedGoteAfter ] );
+    setCapturedSente( [ ...entry.capturedSenteAfter ] );
+    setCurrentPlayer( entry.playerAfter );
+    setLastMove( entry.lastMoveAfter );
+    setOpeningStep( entry.openingStepAfter || 0 );
+    setMatchedOpening( null );
     setUndoIndex( undoIndex + 1 );
-    setBoard( nextBoard.map( row => [ ...row ] ) );
-    setCurrentPlayer( player );
-    setCapturedGote( [ ...capturedGote ] );
-    setCapturedSente( [ ...capturedSente ] );
     setSelectedPiece( null );
     setPossibleMoves( [] );
-    setLastMove( null );
-    refreshGameState( player );
   };
-
 
   // Reset the entire game (already included but reiterated here)
   const resetGame = () => {
@@ -1138,150 +1145,306 @@ const ShogiBoard = () => {
   };
 
   return (
-    <div className="flex flex-wrap flex-row w-fit min-h-screen object-center justify-self-center place-self-center mx-auto p-5 m-5">      {/* Right: Captured by Sente */ }
-      <div className="w-fit bg-gray-100 p-2 flex flex-wrap items-center overflow-y-auto max-h-fit">
-        <div className="flex flex-wrap float-end flex-row sm:flex-col mx-auto w-fit">
-          <h3 className="text-lg font-bold mb-2">Captured by Sente</h3>
-          { groupAndSortCaptured( capturedSente ).map( ( { piece, count } ) => (
-            <div key={ piece } className="relative mb-1 w-fit text-center group">
-              <Image
-                src={ pieceImages[ piece.toUpperCase() ] }
-                alt={ piece }
-                width={ 48 }
-                height={ 48 }
-                className="cursor-pointer object-scale-down object-center"
-                onClick={ () => {
-                  setSelectedPiece( { piece, isCaptured: true } );
-                  setPossibleMoves( getDropLocations( piece, board ) );
-                } }
-              />
-              <span className="text-xs text-center block font-semibold">×{ count }</span>
-
-              {/* Hover card - left aligned */ }
-              <div className="absolute left-full top-1/2 -translate-y-1/2 mr-2 z-50 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-90 transition-all duration-200 whitespace-nowrap">
-                { pieceNames[ piece.toLowerCase() ] || piece }
-              </div>
-            </div>
-          ) ) }
-        </div>
-
-      </div>
-
-
-      {/* Middle: Shogi Board */ }
-      <div className="flex flex-wrap flex-col items-center justify-start p-4">
-        { lastMove && (
-          <span className="mt-2 m-2 p-2 text-sm text-gray-700 font-mono w-full h-auto mx-auto p-3 text-center">
-            Last move: { lastMove.from
-              ? `(${ lastMove.from[ 0 ] },${ lastMove.from[ 1 ] }) → (${ lastMove.to[ 0 ] },${ lastMove.to[ 1 ] })`
-              : `Drop at (${ lastMove.to[ 0 ] },${ lastMove.to[ 1 ] })` }
-          </span>
-        ) }
-
-        <span className="text-xl -mt-4 font-bold w-full text-center h-auto mx-auto">
-          Current Player: { currentPlayer }
-          { isInCheck( currentPlayer ) && ` (in check)` }
-        </span>
-
-        <div className={ `board mx-auto w-full h-auto my-5 p-5` }>
-          { board.map( ( row, x ) =>
-            row.map( ( piece, y ) => (
-              <div
-                key={ `${ x }-${ y }` }
-                className={ `cell w-full aspect-square border border-gray-300 flex items-center justify-center relative 
-    ${ possibleMoves.some( ( [ px, py ] ) => px === x && py === y ) ? 'highlight' : '' }
-    ${ lastMove?.to?.[ 0 ] === x && lastMove?.to?.[ 1 ] === y && currentPlayer === 'gote' ? 'pulse-red' : '' }
-    ${ lastMove?.from?.[ 0 ] === x && lastMove?.from?.[ 1 ] === y && currentPlayer === 'gote' ? 'pulse-red' : '' }` }
-                onClick={ () => handleSquareClick( x, y ) }
-              >
-
-
-                { piece !== ' ' && (
-                  <div className='relative group'>
+    <>
+      <>
+        <div className="hidden md:flex flex-row w-full">
+          <div className="flex flex-wrap flex-row w-fit min-h-screen object-center justify-self-center place-self-center mx-auto p-5 m-5">
+            {/* Right: Captured by Sente */ }
+            <div className="w-fit bg-gray-100 p-2 flex flex-wrap items-center overflow-y-auto max-h-fit">
+              <div className="flex flex-wrap float-end flex-row sm:flex-col mx-auto w-fit">
+                <h3 className="text-lg font-bold mb-2">Captured by Sente</h3>
+                { groupAndSortCaptured( capturedSente ).map( ( { piece, count } ) => (
+                  <div key={ piece } className="relative mb-1 w-fit text-center group">
                     <Image
-                      className={ `object-contain ${ piece === piece.toLowerCase() ? 'rotate-180' : '' }` }
-                      src={ pieceImages[ piece ] }
+                      src={ pieceImages[ piece.toUpperCase() ] }
                       alt={ piece }
                       width={ 48 }
                       height={ 48 }
-                    />
-                    <div className="absolute z-50 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-90 transition-all duration-200 -top-8 left-1/2 -translate-x-1/2 pointer-events-none whitespace-nowrap">
-                      { pieceNames[ piece.replace( '+', '' ).toLowerCase() ] || piece }
+                      className="cursor-pointer object-scale-down object-center"
+                      onClick={ () => {
+                        setSelectedPiece( { piece, isCaptured: true } );
+                        setPossibleMoves( getDropLocations( piece, board ) );
+                      } } />
+                    <span className="text-xs text-center block font-semibold">×{ count }</span>
+                    {/* Hover card - left aligned */ }
+                    <div className="absolute left-full top-1/2 -translate-y-1/2 mr-2 z-50 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-90 transition-all duration-200 whitespace-nowrap">
+                      { pieceNames[ piece.toLowerCase() ] || piece }
                     </div>
                   </div>
-                ) }
-              </div>
-            ) )
-          ) }
-        </div>
-        <div className="mt-5 mx-auto mb-4">
-          <button
-            type='button'
-            onClick={ () => setVsAI( prev => !prev ) }
-            className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
-          >
-            { vsAI ? 'Switch to Player vs Player' : 'Switch to Play vs AI' }
-          </button>
-        </div>
-
-        <div className="mt-4 flex justify-between space-x-4">
-          <button
-            type='button'
-            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-            onClick={ handleUndo }
-          >
-            Undo
-          </button>
-          <button
-            type='button'
-            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-            onClick={ handleRedo }
-          >
-            Redo
-          </button>
-          <button
-            type='reset'
-            className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
-            onClick={ resetGame }
-          >
-            Reset
-          </button>
-        </div>
-      </div>
-      {/* Left: Captured by Gote */ }
-      <div className="bg-gray-100 p-2 flex flex-wrap items-center overflow-y-auto max-h-fit">
-
-        <div className="flex float-start flex-wrap flex-row sm:flex-col mx-auto w-fit">
-          <h3 className="text-lg font-bold mb-2">Captured by Gote</h3>
-          { groupAndSortCaptured( capturedGote ).map( ( { piece, count } ) => (
-            <div key={ piece } className="relative mb-1 w-fit text-center group">
-              <Image
-                src={ pieceImages[ piece.toLowerCase() ] }
-                alt={ piece }
-                width={ 48 }
-                height={ 48 }
-                className="cursor-pointer object-scale-down object-center"
-                onClick={ () => {
-                  setSelectedPiece( { piece, isCaptured: true } );
-                  setPossibleMoves( getDropLocations( piece, board ) );
-                } }
-              />
-              <span className="text-xs text-center block font-semibold">×{ count }</span>
-
-              {/* Hover card - right aligned */ }
-              <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 z-50 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-90 transition-all duration-200 whitespace-nowrap">
-                { pieceNames[ piece.toLowerCase() ] || piece }
+                ) ) }
               </div>
             </div>
-          ) ) }
-
+            {/* Middle: Shogi Board */ }
+            <div className="flex flex-wrap flex-col items-center justify-start p-4">
+              { lastMove && (
+                <span className="mt-2 m-2 p-2 text-sm text-gray-700 font-mono w-full h-auto mx-auto p-3 text-center">
+                  Last move: { lastMove.from
+                    ? `(${ lastMove.from[ 0 ] },${ lastMove.from[ 1 ] }) → (${ lastMove.to[ 0 ] },${ lastMove.to[ 1 ] })`
+                    : `Drop at (${ lastMove.to[ 0 ] },${ lastMove.to[ 1 ] })` }
+                </span>
+              ) }
+              <span className="text-xl -mt-4 font-bold w-full text-center h-auto mx-auto">
+                Current Player: { currentPlayer }
+                { isInCheck( currentPlayer ) && ` (in check)` }
+              </span>
+              <div className={ `board mx-auto w-full h-auto my-5 p-5` }>
+                { board.map( ( row, x ) => row.map( ( piece, y ) => (
+                  <div
+                    key={ `${ x }-${ y }` }
+                    className={ `cell w-full aspect-square border border-gray-300 flex items-center justify-center relative 
+                      ${ possibleMoves.some( ( [ px, py ] ) => px === x && py === y ) ? 'highlight' : '' }
+                      ${ lastMove?.to?.[ 0 ] === x && lastMove?.to?.[ 1 ] === y && currentPlayer === 'gote' ? 'pulse-red' : '' }
+                      ${ lastMove?.from?.[ 0 ] === x && lastMove?.from?.[ 1 ] === y && currentPlayer === 'gote' ? 'pulse-red' : '' }` }
+                    onClick={ () => handleSquareClick( x, y ) }
+                  >
+                    { piece !== ' ' && (
+                      <div className='relative group'>
+                        <Image
+                          className={ `object-contain ${ piece === piece.toLowerCase() ? 'rotate-180' : '' }` }
+                          src={ pieceImages[ piece ] }
+                          alt={ piece }
+                          width={ 48 }
+                          height={ 48 } />
+                        <div className="absolute z-50 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-90 transition-all duration-200 -top-8 left-1/2 -translate-x-1/2 pointer-events-none whitespace-nowrap">
+                          { pieceNames[ piece.replace( '+', '' ).toLowerCase() ] || piece }
+                        </div>
+                      </div>
+                    ) }
+                  </div>
+                ) )
+                ) }
+              </div>
+              <div className="mt-5 mx-auto mb-4">
+                <button
+                  type='button'
+                  onClick={ () => setVsAI( prev => !prev ) }
+                  className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
+                >
+                  { vsAI ? 'Switch to Player vs Player' : 'Switch to Play vs AI' }
+                </button>
+              </div>
+              <div className="mt-4 flex justify-between space-x-4">
+                <button
+                  type='button'
+                  className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+                  onClick={ handleUndo }
+                >
+                  Undo
+                </button>
+                <button
+                  type='button'
+                  className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+                  onClick={ handleRedo }
+                >
+                  Redo
+                </button>
+                <button
+                  type='reset'
+                  className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+                  onClick={ resetGame }
+                >
+                  Reset
+                </button>
+              </div>
+            </div>
+            {/* Left: Captured by Gote */ }
+            <div className="bg-gray-100 p-2 flex flex-wrap items-center overflow-y-auto max-h-fit">
+              <div className="flex float-start flex-wrap flex-row sm:flex-col mx-auto w-fit">
+                <h3 className="text-lg font-bold mb-2">Captured by Gote</h3>
+                { groupAndSortCaptured( capturedGote ).map( ( { piece, count } ) => (
+                  <div key={ piece } className="relative mb-1 w-fit text-center group">
+                    <Image
+                      src={ pieceImages[ piece.toLowerCase() ] }
+                      alt={ piece }
+                      width={ 48 }
+                      height={ 48 }
+                      className="cursor-pointer object-scale-down object-center"
+                      onClick={ () => {
+                        setSelectedPiece( { piece, isCaptured: true } );
+                        setPossibleMoves( getDropLocations( piece, board ) );
+                      } } />
+                    <span className="text-xs text-center block font-semibold">×{ count }</span>
+                    {/* Hover card - right aligned */ }
+                    <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 z-50 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-90 transition-all duration-200 whitespace-nowrap">
+                      { pieceNames[ piece.toLowerCase() ] || piece }
+                    </div>
+                  </div>
+                ) ) }
+              </div>
+            </div>
+          </div>
         </div>
+      </>
 
-      </div>
+      <>
+        {/* Mobile Layout */ }
+        <div className="flex flex-col md:hidden w-full min-h-screen bg-white relative">
+          {/* Mobile Header */ }
+          <div className="text-center font-bold text-lg py-2 border-b">{/* Game Info */ }
+            <div className="text-2xl text-center py-2">
+              Current Player: <strong>{ currentPlayer }</strong>
+              { isInCheck( currentPlayer ) && <span className="text-red-600"> (in check)</span> }
+              { lastMove && (
+                <div className="text-base mt-1">
+                  Last move:{ " " }
+                  { lastMove.from ? `(${ lastMove.from[ 0 ] },${ lastMove.from[ 1 ] }) → (${ lastMove.to[ 0 ] },${ lastMove.to[ 1 ] })` : `Drop at (${ lastMove.to[ 0 ] },${ lastMove.to[ 1 ] })` }
+                </div>
+              ) }
+            </div></div>
 
-    </div>
+
+
+          {/* Mobile Board */ }
+          <div className="grid grid-cols-9 gap-0.5 px-2 bg-gray-200/80">
+            { board.map( ( row, x ) =>
+              row.map( ( piece, y ) => {
+                const isHighlighted = possibleMoves.some( ( [ px, py ] ) => px === x && py === y );
+                const isLastMoveTo = lastMove?.to?.[ 0 ] === x && lastMove?.to?.[ 1 ] === y;
+                const isLastMoveFrom = lastMove?.from?.[ 0 ] === x && lastMove?.from?.[ 1 ] === y;
+
+                const name = pieceNames[ piece.replace( '+', '' ).toLowerCase() ] || '';
+                const nameWords = name.split( ' ' );
+                const topLabel = nameWords.length > 1 ? nameWords[ 0 ] : '';
+                const bottomLabel = nameWords.length > 1 ? nameWords.slice( 1 ).join( ' ' ) : name;
+
+                return (
+                  <div
+                    key={ `${ x }-${ y }` }
+                    onClick={ () => handleSquareClick( x, y ) }
+                    className={ `
+    relative aspect-square w-full border border-black flex items-center justify-center
+    ${ isHighlighted ? 'bg-yellow-300/90' : '' }
+    ${ isHighlighted ? 'bg-yellow-300/90' : '' || isLastMoveTo ? 'bg-red-400/80 border-2 border-red-400/80 animate-pulse' : '' || isLastMoveFrom ? 'animate-pulse border-2 border-red-400/80' : '' }
+  `}
+                  >
+                    {/* Piece image */ }
+                    { piece !== ' ' && (
+                      <>
+                        <Image
+                          src={ pieceImages[ piece ] }
+                          alt={ piece }
+                          width={ 32 }
+                          height={ 32 }
+                          className={ `${ piece === piece.toLowerCase() ? 'rotate-180' : '' }` }
+                        />
+
+                        {/* Top label (for long names only) */ }
+                        { pieceNames[ piece.replace( '+', '' ).toLowerCase() ]?.includes( ' ' ) && (
+                          <div className="overflow-hidden text-pretty absolute -top-[3px] font-extrabold w-full text-[7px] text-center text-black pointer-events-none px-0.5 leading-none">
+                            { pieceNames[ piece.replace( '+', '' ).toLowerCase() ].split( ' ' )[ 0 ] }
+                          </div>
+                        ) }
+
+                        {/* Bottom label (always shown) */ }
+                        <div className="overflow-hidden text-pretty absolute -bottom-[3.5px] font-extrabold w-full text-[7px] text-center text-black pointer-events-none px-0.5 leading-none">
+                          {
+                            pieceNames[ piece.replace( '+', '' ).toLowerCase() ].split( ' ' ).slice( -1 ).join( ' ' )
+                          }
+                        </div>
+                      </>
+                    ) }
+                  </div>
+
+                );
+              } )
+            ) }
+          </div>
+
+
+          {/* Sticky Control Buttons */ }
+          <div className="fixed bottom-16 left-0 right-0 bg-gray-100 flex justify-evenly py-2 z-40">
+            <button onClick={ handleUndo } className="border border-black text-blue-600 font-bold">Undo</button>
+            <button onClick={ handleRedo } className="border border-black text-blue-600 font-bold">Redo</button>
+            <button onClick={ resetGame } className="border border-black text-red-600 font-bold">Reset</button>
+          </div>
+
+          {/* Bottom Drawer Toggle Button */ }
+          <button
+            className="fixed bottom-0 left-0 right-0 bg-blue-600 text-white py-2 text-lg z-40"
+            onClick={ () => setDrawerOpen( !drawerOpen ) }
+          >
+            { drawerOpen ? 'Hide Captured Pieces' : 'Show Captured Pieces' }
+          </button>
+
+          {/* Bottom Drawer */ }
+          <div className={ `fixed bottom-0 left-0 right-0 bg-white border-t border-gray-400 transition-transform duration-300 z-50 ${ drawerOpen ? 'translate-y-0' : 'translate-y-full' }` }>
+            <div className="p-4 space-y-4">
+              <div className="flex justify-between items-center mb-2">
+                <h2 className="font-bold text-center text-sm w-full">Captured Pieces</h2>
+                <button
+                  onClick={ () => setDrawerOpen( false ) }
+                  className="absolute right-4 top-2 text-xs bg-red-500 text-white px-3 py-2.5 rounded"
+                >
+                  Close
+                </button>
+              </div>
+
+              {/* Gote's Captured */ }
+              <div>
+                <h3 className="text-xs font-semibold text-left text-gray-700 pl-2 mb-1">🔵 Captured by Gote</h3>
+                <div className="flex flex-wrap justify-center gap-2">
+                  { groupAndSortCaptured( capturedGote ).map( ( { piece, count } ) => {
+                    const disabled = currentPlayer !== 'gote';
+                    return (
+                      <div
+                        key={ piece + '-g' }
+                        className={ `text-center ${ disabled ? 'opacity-40' : 'cursor-pointer' }` }
+                        onClick={ () => {
+                          if ( !disabled ) {
+                            setSelectedPiece( { piece, isCaptured: true } );
+                            setPossibleMoves( getDropLocations( piece, board ) );
+                          }
+                        } }
+                      >
+                        <Image
+                          src={ pieceImages[ piece.toLowerCase() ] }
+                          alt={ piece }
+                          width={ 32 }
+                          height={ 32 }
+                        />
+                        <div className="text-xs">×{ count }</div>
+                      </div>
+                    );
+                  } ) }
+                </div>
+              </div>
+
+              {/* Sente's Captured */ }
+              <div>
+                <h3 className="text-xs font-semibold text-left text-gray-700 pl-2 mb-1">🔴 Captured by Sente</h3>
+                <div className="flex flex-wrap justify-center gap-2">
+                  { groupAndSortCaptured( capturedSente ).map( ( { piece, count } ) => {
+                    const disabled = currentPlayer !== 'sente';
+                    return (
+                      <div
+                        key={ piece + '-s' }
+                        className={ `text-center ${ disabled ? 'opacity-40' : 'cursor-pointer' }` }
+                        onClick={ () => {
+                          if ( !disabled ) {
+                            setSelectedPiece( { piece, isCaptured: true } );
+                            setPossibleMoves( getDropLocations( piece, board ) );
+                          }
+                        } }
+                      >
+                        <Image
+                          src={ pieceImages[ piece.toUpperCase() ] }
+                          alt={ piece }
+                          width={ 32 }
+                          height={ 32 }
+                        />
+                        <div className="text-xs">x{ count }</div>
+                      </div>
+                    );
+                  } ) }
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </>
+    </>
   );
-
 };
 
 export default ShogiBoard;
