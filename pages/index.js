@@ -1,18 +1,54 @@
 import Image from 'next/image';
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, startTransition } from 'react';
 
-// Initial Shogi board setup
-const initialBoard = [
-  [ 'l', 'n', 's', 'g', 'k', 'g', 's', 'n', 'l' ],
-  [ ' ', 'r', ' ', ' ', ' ', ' ', ' ', 'b', ' ' ],
-  [ 'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p' ],
-  [ ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' ],
-  [ ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' ],
-  [ ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' ],
-  [ 'P', 'P', 'P', 'P', 'P', 'P', 'P', 'P', 'P' ],
-  [ ' ', 'B', ' ', ' ', ' ', ' ', ' ', 'R', ' ' ],
-  [ 'L', 'N', 'S', 'G', 'K', 'G', 'S', 'N', 'L' ]
+const openingBook = [
+  {
+    name: "Yagura",
+    sequence: [
+      { from: [ 6, 6 ], to: [ 5, 6 ], piece: "p" },
+      { from: [ 2, 2 ], to: [ 3, 2 ], piece: "P" },
+      { from: [ 8, 5 ], to: [ 7, 5 ], piece: "g" },
+      { from: [ 0, 3 ], to: [ 1, 3 ], piece: "G" },
+      { from: [ 8, 2 ], to: [ 7, 3 ], piece: "s" },
+      { from: [ 0, 6 ], to: [ 1, 5 ], piece: "S" },
+      { from: [ 6, 1 ], to: [ 5, 1 ], piece: "p" },
+      { from: [ 2, 7 ], to: [ 3, 7 ], piece: "P" }
+    ]
+  },
+  {
+    name: "Double Wing Attack",
+    sequence: [
+      { from: [ 6, 1 ], to: [ 5, 1 ], piece: "p" },
+      { from: [ 2, 7 ], to: [ 3, 7 ], piece: "P" },
+      { from: [ 6, 7 ], to: [ 5, 7 ], piece: "p" },
+      { from: [ 2, 1 ], to: [ 3, 1 ], piece: "P" },
+      { from: [ 7, 7 ], to: [ 5, 7 ], piece: "r" },
+      { from: [ 1, 1 ], to: [ 3, 1 ], piece: "R" }
+    ]
+  }
 ];
+
+function hashMove( { from, to, piece } ) {
+  return `${ from[ 0 ] }${ from[ 1 ] }${ to[ 0 ] }${ to[ 1 ] }${ piece }`;
+}
+
+// Piece images mapped to their symbols
+const pieceImages = {
+  p: '/images/pieces/Pawn.svg', P: '/images/pieces/Pawn.svg',
+  'p+': '/images/pieces/Pawn+.svg', 'P+': '/images/pieces/Pawn+.svg',
+  l: '/images/pieces/Lance.svg', L: '/images/pieces/Lance.svg',
+  'l+': '/images/pieces/Lance+.svg', 'L+': '/images/pieces/Lance+.svg',
+  n: '/images/pieces/Knight.svg', N: '/images/pieces/Knight.svg',
+  'n+': '/images/pieces/Knight+.svg', 'N+': '/images/pieces/Knight+.svg',
+  s: '/images/pieces/SilverGeneral.svg', S: '/images/pieces/SilverGeneral.svg',
+  's+': '/images/pieces/SilverGeneral+.svg', 'S+': '/images/pieces/SilverGeneral+.svg',
+  g: '/images/pieces/GoldGeneral.svg', G: '/images/pieces/GoldGeneral.svg',
+  b: '/images/pieces/Bishop.svg', B: '/images/pieces/Bishop.svg',
+  'b+': '/images/pieces/Bishop+.svg', 'B+': '/images/pieces/Bishop+.svg',
+  r: '/images/pieces/Rook.svg', R: '/images/pieces/Rook.svg',
+  'r+': '/images/pieces/Rook+.svg', 'R+': '/images/pieces/Rook+.svg',
+  k: '/images/pieces/_king.svg', K: '/images/pieces/King.svg'
+};
 
 const pieceNames = {
   p: 'Pawn', 'p+': 'Tokin',
@@ -33,24 +69,37 @@ const pieceNames = {
   K: 'King'
 };
 
+// Initial Shogi board setup
+const initialBoard = [
+  [ 'l', 'n', 's', 'g', 'k', 'g', 's', 'n', 'l' ],
+  [ ' ', 'r', ' ', ' ', ' ', ' ', ' ', 'b', ' ' ],
+  [ 'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p' ],
+  [ ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' ],
+  [ ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' ],
+  [ ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' ],
+  [ 'P', 'P', 'P', 'P', 'P', 'P', 'P', 'P', 'P' ],
+  [ ' ', 'B', ' ', ' ', ' ', ' ', ' ', 'R', ' ' ],
+  [ 'L', 'N', 'S', 'G', 'K', 'G', 'S', 'N', 'L' ]
+];
 
-// Piece images mapped to their symbols
-const pieceImages = {
-  p: '/images/pieces/Pawn.svg', P: '/images/pieces/Pawn.svg',
-  'p+': '/images/pieces/Pawn+.svg', 'P+': '/images/pieces/Pawn+.svg',
-  l: '/images/pieces/Lance.svg', L: '/images/pieces/Lance.svg',
-  'l+': '/images/pieces/Lance+.svg', 'L+': '/images/pieces/Lance+.svg',
-  n: '/images/pieces/Knight.svg', N: '/images/pieces/Knight.svg',
-  'n+': '/images/pieces/Knight+.svg', 'N+': '/images/pieces/Knight+.svg',
-  s: '/images/pieces/SilverGeneral.svg', S: '/images/pieces/SilverGeneral.svg',
-  's+': '/images/pieces/SilverGeneral+.svg', 'S+': '/images/pieces/SilverGeneral+.svg',
-  g: '/images/pieces/GoldGeneral.svg', G: '/images/pieces/GoldGeneral.svg',
-  b: '/images/pieces/Bishop.svg', B: '/images/pieces/Bishop.svg',
-  'b+': '/images/pieces/Bishop+.svg', 'B+': '/images/pieces/Bishop+.svg',
-  r: '/images/pieces/Rook.svg', R: '/images/pieces/Rook.svg',
-  'r+': '/images/pieces/Rook+.svg', 'R+': '/images/pieces/Rook+.svg',
-  k: '/images/pieces/_king.svg', K: '/images/pieces/King.svg'
+const pieceValue = {
+  p: 1, l: 3, n: 3, s: 4, g: 5, b: 7, r: 7, k: 999,
+  'p+': 5, 'l+': 5, 'n+': 5, 's+': 5, 'b+': 9, 'r+': 9
 };
+
+function scoreMove( { piece, captured, promotes, putsOpponentInCheck } ) {
+  let score = 0;
+  const base = pieceValue[ piece.replace( '+', '' ).toLowerCase() ] || 0;
+  const capVal = captured ? pieceValue[ captured.replace( '+', '' ).toLowerCase() ] || 0 : 0;
+  score += capVal * 2;
+  if ( promotes ) score += 1.5;
+  if ( putsOpponentInCheck ) score += 3;
+  if ( [ 'p', 's', 'g' ].includes( piece.toLowerCase() ) && !piece.includes( '+' ) ) score += 0.2;
+  if ( piece.toLowerCase() === 'k' ) score -= 5;
+  score -= base * 0.1;
+  return score;
+}
+
 
 const goldMovement = [
   { x: 0, y: 1 },
@@ -76,6 +125,8 @@ const ShogiBoard = () => {
   const [ vsAI, setVsAI ] = useState( true );
   const [ gameOver, setGameOver ] = useState( false );
   const [ lastMove, setLastMove ] = useState( null ); // { from: [x, y], to: [x, y] }
+  const [ openingStep, setOpeningStep ] = useState( 0 );
+  const [ matchedOpening, setMatchedOpening ] = useState( null );
 
 
 
@@ -475,7 +526,7 @@ const ShogiBoard = () => {
     // 👇 Use forcePiece directly if provided (AI path)
     if ( forcePiece ) {
       updatedBoard[ targetX ][ targetY ] = forcePiece;
-    } else if ( shouldPromote( piece, targetX ) && !piece.includes( '+' ) ) {
+    } else if ( shouldPromote( piece, x, targetX ) && !piece.includes( '+' ) ) {
       const isPromotionMandatory = ( piece, x ) => {
         const isGote = piece === piece.toUpperCase();
         const base = piece.toLowerCase();
@@ -515,20 +566,23 @@ const ShogiBoard = () => {
     }
   };
 
-  const shouldPromote = ( piece, x ) => {
+  const shouldPromote = ( piece, fromX, toX ) => {
     if ( !piece || piece.includes( '+' ) ) return false;
-    if ( piece.toLowerCase() === 'k' || piece.toLowerCase() === 'g' ) return false;
 
-    const isGote = piece === piece.toUpperCase();
+    const base = piece.replace( '+', '' );
+    const isGote = base === base.toUpperCase();
 
-    // Forced promotion (Pawn, Lance, Knight on final rows)
-    if ( [ 'p', 'l', 'n' ].includes( piece.toLowerCase() ) ) {
-      if ( ( isGote && x === 0 ) || ( !isGote && x === 8 ) ) return true;
-    }
+    if ( [ 'K', 'G', 'k', 'g' ].includes( base ) ) return false;
 
-    // Promotion zone: top 3 rows for Sente, bottom 3 for Gote
-    return isGote ? x <= 2 : x >= 6;
+    if ( [ 'P', 'L', 'N' ].includes( base ) && isGote && toX === 0 ) return true;
+    if ( [ 'p', 'l', 'n' ].includes( base ) && !isGote && toX === 8 ) return true;
+
+    const fromInZone = isGote ? fromX <= 2 : fromX >= 6;
+    const toInZone = isGote ? toX <= 2 : toX >= 6;
+
+    return fromInZone || toInZone;
   };
+
 
   // Function to check if the current player is in check
   const isInCheck = ( player, tempBoard = board ) => {
@@ -767,10 +821,7 @@ const ShogiBoard = () => {
     if ( isCheckmate( player ) || isStalemate( player ) ) return;
   };
 
-  const pieceValue = {
-    p: 1, l: 3, n: 3, s: 4, g: 5, b: 7, r: 7, k: 999,
-    'p+': 5, 'l+': 5, 'n+': 5, 's+': 5, 'b+': 9, 'r+': 9
-  };
+
 
   const scoreMove = ( { piece, captured, promotes, putsOpponentInCheck } ) => {
     const val = pieceValue[ piece.replace( '+', '' ).toLowerCase() ] || 0;
@@ -785,143 +836,165 @@ const ShogiBoard = () => {
     return score;
   };
 
+  const matchOpeningBook = () => {
+    for ( const book of openingBook ) {
+      const step = openingStep;
+      const entry = book.sequence[ step ];
+      if ( !entry ) continue;
+
+      const { from, to, piece } = entry;
+
+      // Confirm piece is still at `from` and `to` is empty
+      if (
+        board[ from[ 0 ] ][ from[ 1 ] ] === piece &&
+        board[ to[ 0 ] ][ to[ 1 ] ] === ' '
+      ) {
+        // Ensure this move hasn't already been played
+        const h = hashMove( entry );
+
+        const hasAlreadyPlayed = moveHistory.some( mh =>
+          mh.from && mh.to && mh.piece &&
+          hashMove( mh ) === h
+        );
+
+        if ( !hasAlreadyPlayed ) {
+          return { book, entry };
+        }
+      }
+    }
+    return null;
+  };
+
+  function hashMove( { from, to, piece } ) {
+    if ( !from || !to || !piece ) return '';
+    return `${ from[ 0 ] }${ from[ 1 ] }${ to[ 0 ] }${ to[ 1 ] }${ piece }`;
+  }
+
   const performAIMove = useCallback( async () => {
     if ( currentPlayer !== 'sente' || gameOver ) return;
 
-    const cloneBoard = ( b ) => {
-      const newBoard = new Array( 9 );
-      for ( let i = 0; i < 9; i++ ) {
-        newBoard[ i ] = b[ i ].slice( 0 );
-      }
-      return newBoard;
+    // 1) Opening‑book check
+    const bookMatch = matchedOpening
+      ? { book: matchedOpening, entry: matchedOpening.sequence[ openingStep ] }
+      : matchOpeningBook();
+    if ( bookMatch ) {
+      const { book, entry } = bookMatch;
+      const { from, to, piece } = entry;
+      // execute book move
+      movePiece( to[ 0 ], to[ 1 ], from[ 0 ], from[ 1 ], piece );
+      setLastMove( { from, to } );
+      // advance
+      setMatchedOpening( book );
+      setOpeningStep( openingStep + 1 );
+      return;
+    }
+
+    // 2) Fallback to your existing evaluation logic
+    const cloneBoard = b => {
+      const nb = Array( 9 );
+      for ( let i = 0; i < 9; i++ ) nb[ i ] = b[ i ].slice();
+      return nb;
     };
 
     const allMoves = [];
-
     for ( let x = 0; x < 9; x++ ) {
       for ( let y = 0; y < 9; y++ ) {
         const piece = board[ x ][ y ];
         if ( !piece || piece !== piece.toLowerCase() ) continue;
+        const legal = getPossibleMoves( piece, x, y, board );
+        for ( const [ tx, ty ] of legal ) {
+          const cap = board[ tx ][ ty ];
+          const canProm = shouldPromote( piece, x, tx ) && !piece.includes( '+' );
 
-        const legalMoves = getPossibleMoves( piece, x, y, board );
-
-        for ( const [ targetX, targetY ] of legalMoves ) {
-          const captured = board[ targetX ][ targetY ];
-          const canPromote = shouldPromote( piece, targetX ) && !piece.includes( '+' );
-
-          // Try without promotion
-          const tempNoPromo = cloneBoard( board );
-          tempNoPromo[ x ][ y ] = ' ';
-          tempNoPromo[ targetX ][ targetY ] = piece;
-
-          if ( isInCheck( 'sente', tempNoPromo ) ) continue;
-
-          const noPromoScore = scoreMove( {
+          // simulate no‑promo
+          const b1 = cloneBoard( board );
+          b1[ x ][ y ] = ' ';
+          b1[ tx ][ ty ] = piece;
+          if ( isInCheck( 'sente', b1 ) ) continue;
+          const s1 = scoreMove( {
             piece,
-            captured,
+            captured: cap,
             promotes: false,
-            putsOpponentInCheck: isInCheck( 'gote', tempNoPromo )
+            putsOpponentInCheck: isInCheck( 'gote', b1 )
           } );
 
-          let bestScore = noPromoScore;
-          let bestPromote = false;
-
-          // Try with promotion
-          if ( canPromote ) {
-            const promoted = piece + '+';
-            const tempPromo = cloneBoard( board );
-            tempPromo[ x ][ y ] = ' ';
-            tempPromo[ targetX ][ targetY ] = promoted;
-
-            if ( !isInCheck( 'sente', tempPromo ) ) {
-              const promoScore = scoreMove( {
+          let bestScore = s1, bestProm = false;
+          if ( canProm ) {
+            const promPiece = piece + '+';
+            const b2 = cloneBoard( board );
+            b2[ x ][ y ] = ' ';
+            b2[ tx ][ ty ] = promPiece;
+            if ( !isInCheck( 'sente', b2 ) ) {
+              const s2 = scoreMove( {
                 piece,
-                captured,
+                captured: cap,
                 promotes: true,
-                putsOpponentInCheck: isInCheck( 'gote', tempPromo )
+                putsOpponentInCheck: isInCheck( 'gote', b2 )
               } );
-
-              if ( promoScore > bestScore ) {
-                bestScore = promoScore;
-                bestPromote = true;
+              if ( s2 > bestScore ) {
+                bestScore = s2;
+                bestProm = true;
               }
             }
           }
 
-          const finalPiece = bestPromote ? piece + '+' : piece;
-
           allMoves.push( {
             type: 'move',
             from: [ x, y ],
-            to: [ targetX, targetY ],
-            piece: finalPiece,
+            to: [ tx, ty ],
+            piece: bestProm ? piece + '+' : piece,
             score: bestScore
           } );
         }
       }
     }
 
-    // Drop moves
-    for ( const captured of capturedSente ) {
-      const dropLocations = getDropLocations( captured, board );
-      for ( const [ dx, dy ] of dropLocations ) {
-        const tempBoard = cloneBoard( board );
-        tempBoard[ dx ][ dy ] = captured.toLowerCase();
-
-        if ( isInCheck( 'sente', tempBoard ) ) continue;
-
-        const putsOpponentInCheck = isInCheck( 'gote', tempBoard );
-
-        const score = scoreMove( {
-          piece: captured,
-          captured: null,
-          promotes: false,
-          putsOpponentInCheck
-        } );
-
+    // drop moves
+    for ( const cap of capturedSente ) {
+      const drops = getDropLocations( cap, board );
+      for ( const [ dx, dy ] of drops ) {
+        const b3 = cloneBoard( board );
+        b3[ dx ][ dy ] = cap.toLowerCase();
+        if ( isInCheck( 'sente', b3 ) ) continue;
         allMoves.push( {
           type: 'drop',
           to: [ dx, dy ],
-          piece: captured,
-          score
+          piece: cap,
+          score: scoreMove( {
+            piece: cap,
+            captured: null,
+            promotes: false,
+            putsOpponentInCheck: isInCheck( 'gote', b3 )
+          } )
         } );
       }
     }
 
     if ( !allMoves.length ) {
-      alert( "AI has no legal moves, checkmate! Please reset the board to continue." );
+      alert( "AI has no legal moves (checkmate)." );
       return;
     }
 
     allMoves.sort( ( a, b ) => b.score - a.score );
-    const bestMoves = allMoves.filter( m => m.score === allMoves[ 0 ].score );
-    const chosen = bestMoves[ Math.floor( Math.random() * bestMoves.length ) ];
+    const best = allMoves.filter( m => m.score === allMoves[ 0 ].score );
+    const choice = best[ Math.floor( Math.random() * best.length ) ];
 
     setTimeout( () => {
-      if ( chosen.type === 'drop' ) {
-        handleDropCapturedPiece( chosen.piece, chosen.to[ 0 ], chosen.to[ 1 ] );
-        setLastMove( { from: null, to: [ chosen.to[ 0 ], chosen.to[ 1 ] ] } );
+      if ( choice.type === 'drop' ) {
+        handleDropCapturedPiece( choice.piece, choice.to[ 0 ], choice.to[ 1 ] );
+        setLastMove( { from: null, to: choice.to } );
       } else {
-        movePiece( chosen.to[ 0 ], chosen.to[ 1 ], chosen.from[ 0 ], chosen.from[ 1 ], chosen.piece );
-        setLastMove( {
-          from: [ chosen.from[ 0 ], chosen.from[ 1 ] ],
-          to: [ chosen.to[ 0 ], chosen.to[ 1 ] ]
-        } );
+        movePiece( choice.to[ 0 ], choice.to[ 1 ], choice.from[ 0 ], choice.from[ 1 ], choice.piece );
+        setLastMove( { from: choice.from, to: choice.to } );
       }
     }, 100 );
   }, [
-    board,
-    currentPlayer,
-    gameOver,
-    getPossibleMoves,
-    capturedSente,
-    shouldPromote,
-    isInCheck,
-    isVictory,
-    movePiece,
-    handleDropCapturedPiece,
-    scoreMove,
-    setLastMove
+    board, currentPlayer, gameOver,
+    getPossibleMoves, capturedSente,
+    shouldPromote, isInCheck,
+    movePiece, handleDropCapturedPiece,
+    scoreMove, matchedOpening,
+    openingStep, setLastMove
   ] );
 
 
@@ -1065,16 +1138,14 @@ const ShogiBoard = () => {
   };
 
   return (
-    <div className="flex flex-wrap flex-row w-full min-h-full object-center justify-self-center place-self-center mx-auto overflow-hidden">
-      {/* Left: Captured by Gote */ }
-      <div className="bg-gray-100 p-2 flex flex-wrap items-center overflow-y-auto max-h-fit">
-
-        <div className="flex float-start flex-wrap flex-row sm:flex-col mx-auto w-fit">
-          <h3 className="text-lg font-bold mb-2">Captured by Gote</h3>
-          { groupAndSortCaptured( capturedGote ).map( ( { piece, count } ) => (
+    <div className="flex flex-wrap flex-row w-fit min-h-screen object-center justify-self-center place-self-center mx-auto p-5 m-5">      {/* Right: Captured by Sente */ }
+      <div className="w-fit bg-gray-100 p-2 flex flex-wrap items-center overflow-y-auto max-h-fit">
+        <div className="flex flex-wrap float-end flex-row sm:flex-col mx-auto w-fit">
+          <h3 className="text-lg font-bold mb-2">Captured by Sente</h3>
+          { groupAndSortCaptured( capturedSente ).map( ( { piece, count } ) => (
             <div key={ piece } className="relative mb-1 w-fit text-center group">
               <Image
-                src={ pieceImages[ piece.toLowerCase() ] }
+                src={ pieceImages[ piece.toUpperCase() ] }
                 alt={ piece }
                 width={ 48 }
                 height={ 48 }
@@ -1086,33 +1157,33 @@ const ShogiBoard = () => {
               />
               <span className="text-xs text-center block font-semibold">×{ count }</span>
 
-              {/* Hover card - right aligned */ }
-              <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 z-50 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-90 transition-all duration-200 whitespace-nowrap">
+              {/* Hover card - left aligned */ }
+              <div className="absolute left-full top-1/2 -translate-y-1/2 mr-2 z-50 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-90 transition-all duration-200 whitespace-nowrap">
                 { pieceNames[ piece.toLowerCase() ] || piece }
               </div>
             </div>
           ) ) }
-
         </div>
 
       </div>
 
+
       {/* Middle: Shogi Board */ }
       <div className="flex flex-wrap flex-col items-center justify-start p-4">
         { lastMove && (
-          <div className="mt-2 m-2 p-2 text-sm text-gray-700 font-mono">
+          <span className="mt-2 m-2 p-2 text-sm text-gray-700 font-mono w-full h-auto mx-auto p-3 text-center">
             Last move: { lastMove.from
               ? `(${ lastMove.from[ 0 ] },${ lastMove.from[ 1 ] }) → (${ lastMove.to[ 0 ] },${ lastMove.to[ 1 ] })`
               : `Drop at (${ lastMove.to[ 0 ] },${ lastMove.to[ 1 ] })` }
-          </div>
+          </span>
         ) }
 
-        <h1 className="text-2xl mb-4 p-2 m-2 font-bold">
+        <span className="text-xl -mt-4 font-bold w-full text-center h-auto mx-auto">
           Current Player: { currentPlayer }
           { isInCheck( currentPlayer ) && ` (in check)` }
-        </h1>
+        </span>
 
-        <div className={ `board w-full` }>
+        <div className={ `board mx-auto w-full h-auto my-5 p-5` }>
           { board.map( ( row, x ) =>
             row.map( ( piece, y ) => (
               <div
@@ -1177,15 +1248,15 @@ const ShogiBoard = () => {
           </button>
         </div>
       </div>
+      {/* Left: Captured by Gote */ }
+      <div className="bg-gray-100 p-2 flex flex-wrap items-center overflow-y-auto max-h-fit">
 
-      {/* Right: Captured by Sente */ }
-      <div className="w-fit bg-gray-100 p-2 flex flex-wrap items-center overflow-y-auto max-h-fit">
-        <div className="flex flex-wrap float-end flex-row sm:flex-col mx-auto w-full">
-          <h3 className="text-lg font-bold mb-2">Captured by Sente</h3>
-          { groupAndSortCaptured( capturedSente ).map( ( { piece, count } ) => (
+        <div className="flex float-start flex-wrap flex-row sm:flex-col mx-auto w-fit">
+          <h3 className="text-lg font-bold mb-2">Captured by Gote</h3>
+          { groupAndSortCaptured( capturedGote ).map( ( { piece, count } ) => (
             <div key={ piece } className="relative mb-1 w-fit text-center group">
               <Image
-                src={ pieceImages[ piece.toUpperCase() ] }
+                src={ pieceImages[ piece.toLowerCase() ] }
                 alt={ piece }
                 width={ 48 }
                 height={ 48 }
@@ -1197,15 +1268,17 @@ const ShogiBoard = () => {
               />
               <span className="text-xs text-center block font-semibold">×{ count }</span>
 
-              {/* Hover card - left aligned */ }
-              <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2 z-50 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-90 transition-all duration-200 whitespace-nowrap">
+              {/* Hover card - right aligned */ }
+              <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 z-50 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-90 transition-all duration-200 whitespace-nowrap">
                 { pieceNames[ piece.toLowerCase() ] || piece }
               </div>
             </div>
           ) ) }
+
         </div>
 
       </div>
+
     </div>
   );
 
