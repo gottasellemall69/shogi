@@ -128,6 +128,8 @@ const ShogiBoard = () => {
   const [ openingStep, setOpeningStep ] = useState( 0 );
   const [ matchedOpening, setMatchedOpening ] = useState( null );
   const [ drawerOpen, setDrawerOpen ] = useState( false );
+  const [ checkmateInfo, setCheckmateInfo ] = useState( null ); // null | { player, kingPos, lastMove }
+
 
 
 
@@ -654,30 +656,48 @@ const ShogiBoard = () => {
   };
 
   // Check for checkmate by seeing if the player has any legal moves left
-  const isCheckmate = player => {
-    if ( !isInCheck( player ) ) return false; // Not in check, so can't be checkmate
+  const isCheckmate = ( player ) => {
+    if ( !isInCheck( player ) ) return false;
 
-    // Check if any of the player's pieces can make a valid move
+    const kingPiece = player === 'gote' ? 'K' : 'k';
+    const kingPos = findKingPosition( kingPiece );
+    let legalExists = false;
+
+    // Can any piece move legally?
+    outerLoop:
     for ( let i = 0; i < 9; i++ ) {
       for ( let j = 0; j < 9; j++ ) {
         const piece = board[ i ][ j ];
-        if (
-          piece &&
-          ( player === 'gote'
-            ? piece === piece.toUpperCase()
-            : piece === piece.toLowerCase() )
-        ) {
-          const moves = getPossibleMoves( piece, i, j, board );
-          if ( moves.length > 0 ) {
-            return false; // Player can escape check, so not checkmate
+        if ( !piece ) continue;
+        const isPlayersPiece =
+          ( player === 'gote' && piece === piece.toUpperCase() ) ||
+          ( player === 'sente' && piece === piece.toLowerCase() );
+        if ( !isPlayersPiece ) continue;
+
+        const moves = getPossibleMoves( piece, i, j, board );
+        for ( const [ nx, ny ] of moves ) {
+          const simulated = board.map( r => [ ...r ] );
+          simulated[ i ][ j ] = ' ';
+          simulated[ nx ][ ny ] = piece;
+          if ( !isInCheck( player, simulated ) ) {
+            legalExists = true;
+            break outerLoop;
           }
         }
       }
     }
 
-    alert( `Checkmate! ${ player === 'gote' ? 'Sente' : 'Gote' } wins!` );
-    setGameOver( true );
-    return true;
+    if ( !legalExists ) {
+      setGameOver( true );
+      setCheckmateInfo( {
+        player,
+        kingPos,
+        lastMove
+      } );
+      return true;
+    }
+
+    return false;
   };
 
   // Check for stalemate (no legal moves, but not in check)
@@ -1076,7 +1096,11 @@ const ShogiBoard = () => {
     setMoveHistory( [] );
     setUndoIndex( 0 );
     setLastMove( null );
+    setMatchedOpening( null );
+    setOpeningStep( 0 );
+    setCheckmateInfo( null ); // 👈 Add this
   };
+
 
   const handleSquareClick = ( x, y ) => {
     const piece = board[ x ][ y ];
@@ -1214,6 +1238,37 @@ const ShogiBoard = () => {
                 ) )
                 ) }
               </div>
+              { gameOver && checkmateInfo && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                  <div className="bg-white rounded-lg shadow-xl max-w-sm w-full p-5 text-center">
+                    <h2 className="text-xl font-bold text-red-600 mb-3">Checkmate!</h2>
+                    <p className="mb-2">
+                      <strong>{ checkmateInfo.player }</strong> has been checkmated.
+                    </p>
+                    <p className="text-sm text-gray-700 mb-1">
+                      <strong>King Position:</strong> ({ checkmateInfo.kingPos?.[ 0 ] }, { checkmateInfo.kingPos?.[ 1 ] })
+                    </p>
+                    { checkmateInfo.lastMove && (
+                      <p className="text-sm text-gray-700 mb-1">
+                        <strong>Last Move:</strong>{ ' ' }
+                        { checkmateInfo.lastMove.from
+                          ? `(${ checkmateInfo.lastMove.from[ 0 ] },${ checkmateInfo.lastMove.from[ 1 ] }) → (${ checkmateInfo.lastMove.to[ 0 ] },${ checkmateInfo.lastMove.to[ 1 ] })`
+                          : `Drop at (${ checkmateInfo.lastMove.to[ 0 ] },${ checkmateInfo.lastMove.to[ 1 ] })` }
+                      </p>
+                    ) }
+                    <p className="text-xs text-gray-600 mt-3">
+                      No legal moves remain to escape check.
+                    </p>
+
+                    <button
+                      onClick={ resetGame }
+                      className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-semibold"
+                    >
+                      Reset Game
+                    </button>
+                  </div>
+                </div>
+              ) }
               <div className="mt-5 mx-auto mb-4">
                 <button
                   type='button'
@@ -1349,6 +1404,38 @@ const ShogiBoard = () => {
               } )
             ) }
           </div>
+
+          { gameOver && checkmateInfo && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-lg shadow-xl max-w-sm w-full p-5 text-center">
+                <h2 className="text-xl font-bold text-red-600 mb-3">Checkmate!</h2>
+                <p className="mb-2">
+                  <strong>{ checkmateInfo.player }</strong> has been checkmated.
+                </p>
+                <p className="text-sm text-gray-700 mb-1">
+                  <strong>King Position:</strong> ({ checkmateInfo.kingPos?.[ 0 ] }, { checkmateInfo.kingPos?.[ 1 ] })
+                </p>
+                { checkmateInfo.lastMove && (
+                  <p className="text-sm text-gray-700 mb-1">
+                    <strong>Last Move:</strong>{ ' ' }
+                    { checkmateInfo.lastMove.from
+                      ? `(${ checkmateInfo.lastMove.from[ 0 ] },${ checkmateInfo.lastMove.from[ 1 ] }) → (${ checkmateInfo.lastMove.to[ 0 ] },${ checkmateInfo.lastMove.to[ 1 ] })`
+                      : `Drop at (${ checkmateInfo.lastMove.to[ 0 ] },${ checkmateInfo.lastMove.to[ 1 ] })` }
+                  </p>
+                ) }
+                <p className="text-xs text-gray-600 mt-3">
+                  No legal moves remain to escape check.
+                </p>
+
+                <button
+                  onClick={ resetGame }
+                  className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-semibold"
+                >
+                  Reset Game
+                </button>
+              </div>
+            </div>
+          ) }
 
 
           {/* Sticky Control Buttons */ }
