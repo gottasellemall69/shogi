@@ -87,18 +87,37 @@ const pieceValue = {
   'p+': 5, 'l+': 5, 'n+': 5, 's+': 5, 'b+': 9, 'r+': 9
 };
 
-function scoreMove( { piece, captured, promotes, putsOpponentInCheck } ) {
+function scoreMove( { piece, captured, promotes, putsOpponentInCheck, from, to } ) {
+  const baseVal = pieceValue[ piece.replace( '+', '' ).toLowerCase() ] || 0;
+  const capturedVal = captured ? ( pieceValue[ captured.replace( '+', '' ).toLowerCase() ] || 0 ) : 0;
+
   let score = 0;
-  const base = pieceValue[ piece.replace( '+', '' ).toLowerCase() ] || 0;
-  const capVal = captured ? pieceValue[ captured.replace( '+', '' ).toLowerCase() ] || 0 : 0;
-  score += capVal * 2;
-  if ( promotes ) score += 1.5;
-  if ( putsOpponentInCheck ) score += 3;
-  if ( [ 'p', 's', 'g' ].includes( piece.toLowerCase() ) && !piece.includes( '+' ) ) score += 0.2;
+
+  // Material gain
+  score += capturedVal * 2;
+
+  // Positional bonus (center control)
+  const centerBonus = 4 - Math.abs( 4 - to[ 0 ] ) - Math.abs( 4 - to[ 1 ] ); // max 4
+  score += centerBonus * 0.2;
+
+  // Promotion bonus
+  if ( promotes ) score += 2.5;
+
+  // Check bonus
+  if ( putsOpponentInCheck ) score += 2;
+
+  // King safety: discourage king from moving unless check
   if ( piece.toLowerCase() === 'k' ) score -= 5;
-  score -= base * 0.1;
+
+  // Mobility bonus: prefer moves that unblock back rank
+  if ( from && from[ 0 ] >= 6 && [ 'l', 'n', 's' ].includes( piece.toLowerCase() ) ) score += 0.5;
+
+  // Penalize trading down
+  score -= baseVal * 0.4;
+
   return score;
 }
+
 
 
 const goldMovement = [
@@ -832,10 +851,23 @@ const ShogiBoard = () => {
     temp[ x ][ y ] = currentPlayer === 'gote' ? piece.toUpperCase() : piece.toLowerCase();
 
     // Cannot deliver immediate checkmate by pawn
-    if ( piece.toLowerCase() === 'p' && isCheckmate(
-      currentPlayer === 'gote' ? 'sente' : 'gote',
-      temp
-    ) ) return false;
+    // Disallow uchifuzume: pawn drop that gives immediate checkmate
+    if ( piece.toLowerCase() === 'p' ) {
+      const target = board[ x ][ y ];
+      if ( target !== ' ' ) return false;
+
+      const simulated = structuredClone( board );
+
+      simulated[ x ][ y ] = currentPlayer === 'gote' ? piece.toUpperCase() : piece.toLowerCase();
+
+      const opponent = currentPlayer === 'gote' ? 'sente' : 'gote';
+
+      // If this drop results in *immediate* checkmate, it’s illegal
+      if ( isInCheck( opponent, simulated ) && isCheckmate( opponent, simulated ) ) {
+        return false; // uchifuzume violation
+      }
+    }
+
 
     // And cannot leave yourself in check
     return !isInCheck( currentPlayer, temp );
@@ -907,122 +939,200 @@ const ShogiBoard = () => {
     return `${ from[ 0 ] }${ from[ 1 ] }${ to[ 0 ] }${ to[ 1 ] }${ piece }`;
   }
 
+  const cloneBoard = b => b.map( row => [ ...row ] );
+
   const performAIMove = useCallback( async () => {
     if ( currentPlayer !== 'sente' || gameOver ) return;
 
-    // 1) Opening‑book check
     const bookMatch = matchedOpening
       ? { book: matchedOpening, entry: matchedOpening.sequence[ openingStep ] }
       : matchOpeningBook();
+
     if ( bookMatch ) {
       const { book, entry } = bookMatch;
       const { from, to, piece } = entry;
-      // execute book move
       movePiece( to[ 0 ], to[ 1 ], from[ 0 ], from[ 1 ], piece );
       setLastMove( { from, to } );
-      // advance
       setMatchedOpening( book );
       setOpeningStep( openingStep + 1 );
       return;
     }
 
-    // 2) Fallback to your existing evaluation logic
-    const cloneBoard = b => {
-      const nb = Array( 9 );
-      for ( let i = 0; i < 9; i++ ) nb[ i ] = b[ i ].slice();
-      return nb;
+    const memoGetMoves = new Map();
+    const getCachedMoves = ( piece, x, y, b ) => {
+      const key = `${ piece }_${ x }_${ y }`;
+      if ( !memoGetMoves.has( key ) ) {
+        memoGetMoves.set( key, getPossibleMoves( piece, x, y, b ) );
+      }
+      return memoGetMoves.get( key );
     };
 
+    function evaluateOpponentBestResponse( b, goteCaps ) {
+      const moves = [];
+
+      for ( let x = 0; x < 9; x++ ) {
+        for ( let y = 0; y < 9; y++ ) {
+          const piece = b[ x ][ y ];
+          if ( !piece || piece !== piece.toUpperCase() ) continue;
+
+          const legal = getCachedMoves( piece, x, y, b );
+          for ( const [ tx, ty ] of legal ) {
+            const cap = b[ tx ][ ty ];
+            const val = pieceValue[ cap?.replace( '+', '' ).toLowerCase() ] || 0;
+            moves.push( {
+              from: [ x, y ],
+              to: [ tx, ty ],
+              piece,
+              captureValue: val
+            } );
+          }
+        }
+      }
+
+      // Only consider top 10 most valuable replies
+      moves.sort( ( a, b ) => b.captureValue - a.captureValue );
+      const topReplies = moves.slice( 0, 10 );
+
+      let best = -Infinity;
+
+      for ( const { from, to, piece } of topReplies ) {
+        const [ x, y ] = from;
+        const [ tx, ty ] = to;
+        const cap = b[ tx ][ ty ];
+
+        const temp = cloneBoard( b );
+        temp[ x ][ y ] = ' ';
+        temp[ tx ][ ty ] = piece;
+
+        if ( isInCheck( 'gote', temp ) ) continue;
+
+        const score = scoreMove( {
+          piece,
+          captured: cap,
+          promotes: shouldPromote( piece, x, tx ) && !piece.includes( '+' ),
+          putsOpponentInCheck: isInCheck( 'sente', temp ),
+          from,
+          to
+        } );
+
+        if ( score > best ) best = score;
+      }
+
+      return best === -Infinity ? 0 : best;
+    }
+
     const allMoves = [];
+
     for ( let x = 0; x < 9; x++ ) {
       for ( let y = 0; y < 9; y++ ) {
         const piece = board[ x ][ y ];
         if ( !piece || piece !== piece.toLowerCase() ) continue;
-        const legal = getPossibleMoves( piece, x, y, board );
-        for ( const [ tx, ty ] of legal ) {
-          const cap = board[ tx ][ ty ];
-          const canProm = shouldPromote( piece, x, tx ) && !piece.includes( '+' );
 
-          // simulate no‑promo
-          const b1 = cloneBoard( board );
-          b1[ x ][ y ] = ' ';
-          b1[ tx ][ ty ] = piece;
-          if ( isInCheck( 'sente', b1 ) ) continue;
-          const s1 = scoreMove( {
+        const legalMoves = getCachedMoves( piece, x, y, board );
+        for ( const [ tx, ty ] of legalMoves ) {
+          const captured = board[ tx ][ ty ];
+          const canPromote = shouldPromote( piece, x, tx ) && !piece.includes( '+' );
+
+          // Try move without promotion
+          const temp1 = cloneBoard( board );
+          temp1[ x ][ y ] = ' ';
+          temp1[ tx ][ ty ] = piece;
+          if ( isInCheck( 'sente', temp1 ) ) continue;
+
+          let baseScore = scoreMove( {
             piece,
-            captured: cap,
+            captured,
             promotes: false,
-            putsOpponentInCheck: isInCheck( 'gote', b1 )
+            putsOpponentInCheck: isInCheck( 'gote', temp1 ),
+            from: [ x, y ],
+            to: [ tx, ty ]
           } );
 
-          let bestScore = s1, bestProm = false;
-          if ( canProm ) {
-            const promPiece = piece + '+';
-            const b2 = cloneBoard( board );
-            b2[ x ][ y ] = ' ';
-            b2[ tx ][ ty ] = promPiece;
-            if ( !isInCheck( 'sente', b2 ) ) {
-              const s2 = scoreMove( {
-                piece,
-                captured: cap,
+          let bestPiece = piece;
+
+          // Try promotion
+          if ( canPromote ) {
+            const promoted = piece + '+';
+            const temp2 = cloneBoard( board );
+            temp2[ x ][ y ] = ' ';
+            temp2[ tx ][ ty ] = promoted;
+
+            if ( !isInCheck( 'sente', temp2 ) ) {
+              const promScore = scoreMove( {
+                piece: promoted,
+                captured,
                 promotes: true,
-                putsOpponentInCheck: isInCheck( 'gote', b2 )
+                putsOpponentInCheck: isInCheck( 'gote', temp2 ),
+                from: [ x, y ],
+                to: [ tx, ty ]
               } );
-              if ( s2 > bestScore ) {
-                bestScore = s2;
-                bestProm = true;
+
+              if ( promScore > baseScore ) {
+                baseScore = promScore;
+                bestPiece = promoted;
               }
             }
           }
+
+          const finalBoard = cloneBoard( board );
+          finalBoard[ x ][ y ] = ' ';
+          finalBoard[ tx ][ ty ] = bestPiece;
+          const opponentScore = evaluateOpponentBestResponse( finalBoard, capturedGote );
 
           allMoves.push( {
             type: 'move',
             from: [ x, y ],
             to: [ tx, ty ],
-            piece: bestProm ? piece + '+' : piece,
-            score: bestScore
+            piece: bestPiece,
+            score: baseScore - opponentScore * 0.8
           } );
         }
       }
     }
 
-    // drop moves
     for ( const cap of capturedSente ) {
-      const drops = getDropLocations( cap, board );
-      for ( const [ dx, dy ] of drops ) {
-        const b3 = cloneBoard( board );
-        b3[ dx ][ dy ] = cap.toLowerCase();
-        if ( isInCheck( 'sente', b3 ) ) continue;
+      const dropTargets = getDropLocations( cap, board );
+      for ( const [ dx, dy ] of dropTargets ) {
+        const temp = cloneBoard( board );
+        temp[ dx ][ dy ] = cap.toLowerCase();
+        if ( isInCheck( 'sente', temp ) ) continue;
+
+        const dropScore = scoreMove( {
+          piece: cap,
+          captured: null,
+          promotes: false,
+          putsOpponentInCheck: isInCheck( 'gote', temp ),
+          from: null,
+          to: [ dx, dy ]
+        } );
+
+        const opponentScore = evaluateOpponentBestResponse( temp, capturedGote );
+
         allMoves.push( {
           type: 'drop',
           to: [ dx, dy ],
           piece: cap,
-          score: scoreMove( {
-            piece: cap,
-            captured: null,
-            promotes: false,
-            putsOpponentInCheck: isInCheck( 'gote', b3 )
-          } )
+          score: dropScore - opponentScore * 0.8
         } );
       }
     }
 
     if ( !allMoves.length ) {
-      alert( "AI has no legal moves (checkmate)." );
+      alert( 'AI has no legal moves.' );
       return;
     }
 
     allMoves.sort( ( a, b ) => b.score - a.score );
     const best = allMoves.filter( m => m.score === allMoves[ 0 ].score );
-    const choice = best[ Math.floor( Math.random() * best.length ) ];
+    const chosen = best[ Math.floor( Math.random() * best.length ) ];
 
     setTimeout( () => {
-      if ( choice.type === 'drop' ) {
-        handleDropCapturedPiece( choice.piece, choice.to[ 0 ], choice.to[ 1 ] );
-        setLastMove( { from: null, to: choice.to } );
+      if ( chosen.type === 'drop' ) {
+        handleDropCapturedPiece( chosen.piece, chosen.to[ 0 ], chosen.to[ 1 ] );
+        setLastMove( { from: null, to: chosen.to } );
       } else {
-        movePiece( choice.to[ 0 ], choice.to[ 1 ], choice.from[ 0 ], choice.from[ 1 ], choice.piece );
-        setLastMove( { from: choice.from, to: choice.to } );
+        movePiece( chosen.to[ 0 ], chosen.to[ 1 ], chosen.from[ 0 ], chosen.from[ 1 ], chosen.piece );
+        setLastMove( { from: chosen.from, to: chosen.to } );
       }
     }, 100 );
   }, [
@@ -1031,9 +1141,8 @@ const ShogiBoard = () => {
     shouldPromote, isInCheck,
     movePiece, handleDropCapturedPiece,
     scoreMove, matchedOpening,
-    openingStep, setLastMove
+    openingStep, setLastMove, capturedGote
   ] );
-
 
   useEffect( () => {
     if ( vsAI && currentPlayer === 'sente' ) {
