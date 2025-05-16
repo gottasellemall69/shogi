@@ -29,6 +29,7 @@ const openingBook = [
 ];
 
 function hashMove( { from, to, piece } ) {
+  if ( !from || !to || !piece ) return '';
   return `${ from[ 0 ] }${ from[ 1 ] }${ to[ 0 ] }${ to[ 1 ] }${ piece }`;
 }
 
@@ -87,38 +88,6 @@ const pieceValue = {
   'p+': 5, 'l+': 5, 'n+': 5, 's+': 5, 'b+': 9, 'r+': 9
 };
 
-function scoreMove( { piece, captured, promotes, putsOpponentInCheck, from, to } ) {
-  const baseVal = pieceValue[ piece.replace( '+', '' ).toLowerCase() ] || 0;
-  const capturedVal = captured ? ( pieceValue[ captured.replace( '+', '' ).toLowerCase() ] || 0 ) : 0;
-
-  let score = 0;
-
-  // Material gain
-  score += capturedVal * 2;
-
-  // Positional bonus (center control)
-  const centerBonus = 4 - Math.abs( 4 - to[ 0 ] ) - Math.abs( 4 - to[ 1 ] ); // max 4
-  score += centerBonus * 0.2;
-
-  // Promotion bonus
-  if ( promotes ) score += 2.5;
-
-  // Check bonus
-  if ( putsOpponentInCheck ) score += 2;
-
-  // King safety: discourage king from moving unless check
-  if ( piece.toLowerCase() === 'k' ) score -= 5;
-
-  // Mobility bonus: prefer moves that unblock back rank
-  if ( from && from[ 0 ] >= 6 && [ 'l', 'n', 's' ].includes( piece.toLowerCase() ) ) score += 0.5;
-
-  // Penalize trading down
-  score -= baseVal * 0.4;
-
-  return score;
-}
-
-
 
 const goldMovement = [
   { x: 0, y: 1 },
@@ -128,6 +97,8 @@ const goldMovement = [
   { x: 1, y: 1 },
   { x: -1, y: 1 }
 ];
+
+
 
 // Main ShogiBoard component
 const ShogiBoard = () => {
@@ -148,6 +119,11 @@ const ShogiBoard = () => {
   const [ matchedOpening, setMatchedOpening ] = useState( null );
   const [ drawerOpen, setDrawerOpen ] = useState( false );
   const [ checkmateInfo, setCheckmateInfo ] = useState( null ); // null | { player, kingPos, lastMove }
+  const [ replayMode, setReplayMode ] = useState( false );
+  const [ replayIndex, setReplayIndex ] = useState( 0 );
+  const [ replayPlaying, setReplayPlaying ] = useState( false );
+  const [ replaySpeed, setReplaySpeed ] = useState( 1000 ); // 1 second per move
+
 
 
 
@@ -547,7 +523,7 @@ const ShogiBoard = () => {
     if ( forcePiece ) {
       finalPiece = forcePiece;
     } else if ( shouldPromote( piece, x, targetX ) && !piece.includes( '+' ) ) {
-      const isMandatory = ( ( piece, x ) => {
+      const isMandatory = ( ( piece ) => {
         const isGote = piece === piece.toUpperCase();
         const base = piece.toLowerCase();
         return [ 'p', 'l', 'n' ].includes( base ) &&
@@ -587,7 +563,6 @@ const ShogiBoard = () => {
 
     if ( isVictory() ) {
       alert( `${ currentPlayer === 'gote' ? 'Sente' : 'Gote' } wins!` );
-      resetGame();
     }
   };
 
@@ -851,23 +826,10 @@ const ShogiBoard = () => {
     temp[ x ][ y ] = currentPlayer === 'gote' ? piece.toUpperCase() : piece.toLowerCase();
 
     // Cannot deliver immediate checkmate by pawn
-    // Disallow uchifuzume: pawn drop that gives immediate checkmate
-    if ( piece.toLowerCase() === 'p' ) {
-      const target = board[ x ][ y ];
-      if ( target !== ' ' ) return false;
-
-      const simulated = structuredClone( board );
-
-      simulated[ x ][ y ] = currentPlayer === 'gote' ? piece.toUpperCase() : piece.toLowerCase();
-
-      const opponent = currentPlayer === 'gote' ? 'sente' : 'gote';
-
-      // If this drop results in *immediate* checkmate, it’s illegal
-      if ( isInCheck( opponent, simulated ) && isCheckmate( opponent, simulated ) ) {
-        return false; // uchifuzume violation
-      }
-    }
-
+    if ( piece.toLowerCase() === 'p' && isCheckmate(
+      currentPlayer === 'gote' ? 'sente' : 'gote',
+      temp
+    ) ) return false;
 
     // And cannot leave yourself in check
     return !isInCheck( currentPlayer, temp );
@@ -934,205 +896,124 @@ const ShogiBoard = () => {
     return null;
   };
 
-  function hashMove( { from, to, piece } ) {
-    if ( !from || !to || !piece ) return '';
-    return `${ from[ 0 ] }${ from[ 1 ] }${ to[ 0 ] }${ to[ 1 ] }${ piece }`;
-  }
 
-  const cloneBoard = b => b.map( row => [ ...row ] );
 
   const performAIMove = useCallback( async () => {
     if ( currentPlayer !== 'sente' || gameOver ) return;
 
+    // 1) Opening‑book check
     const bookMatch = matchedOpening
       ? { book: matchedOpening, entry: matchedOpening.sequence[ openingStep ] }
       : matchOpeningBook();
-
     if ( bookMatch ) {
       const { book, entry } = bookMatch;
       const { from, to, piece } = entry;
+      // execute book move
       movePiece( to[ 0 ], to[ 1 ], from[ 0 ], from[ 1 ], piece );
       setLastMove( { from, to } );
+      // advance
       setMatchedOpening( book );
       setOpeningStep( openingStep + 1 );
       return;
     }
 
-    const memoGetMoves = new Map();
-    const getCachedMoves = ( piece, x, y, b ) => {
-      const key = `${ piece }_${ x }_${ y }`;
-      if ( !memoGetMoves.has( key ) ) {
-        memoGetMoves.set( key, getPossibleMoves( piece, x, y, b ) );
-      }
-      return memoGetMoves.get( key );
+    // 2) Fallback to your existing evaluation logic
+    const cloneBoard = b => {
+      const nb = Array( 9 );
+      for ( let i = 0; i < 9; i++ ) nb[ i ] = b[ i ].slice();
+      return nb;
     };
 
-    function evaluateOpponentBestResponse( b, goteCaps ) {
-      const moves = [];
-
-      for ( let x = 0; x < 9; x++ ) {
-        for ( let y = 0; y < 9; y++ ) {
-          const piece = b[ x ][ y ];
-          if ( !piece || piece !== piece.toUpperCase() ) continue;
-
-          const legal = getCachedMoves( piece, x, y, b );
-          for ( const [ tx, ty ] of legal ) {
-            const cap = b[ tx ][ ty ];
-            const val = pieceValue[ cap?.replace( '+', '' ).toLowerCase() ] || 0;
-            moves.push( {
-              from: [ x, y ],
-              to: [ tx, ty ],
-              piece,
-              captureValue: val
-            } );
-          }
-        }
-      }
-
-      // Only consider top 10 most valuable replies
-      moves.sort( ( a, b ) => b.captureValue - a.captureValue );
-      const topReplies = moves.slice( 0, 10 );
-
-      let best = -Infinity;
-
-      for ( const { from, to, piece } of topReplies ) {
-        const [ x, y ] = from;
-        const [ tx, ty ] = to;
-        const cap = b[ tx ][ ty ];
-
-        const temp = cloneBoard( b );
-        temp[ x ][ y ] = ' ';
-        temp[ tx ][ ty ] = piece;
-
-        if ( isInCheck( 'gote', temp ) ) continue;
-
-        const score = scoreMove( {
-          piece,
-          captured: cap,
-          promotes: shouldPromote( piece, x, tx ) && !piece.includes( '+' ),
-          putsOpponentInCheck: isInCheck( 'sente', temp ),
-          from,
-          to
-        } );
-
-        if ( score > best ) best = score;
-      }
-
-      return best === -Infinity ? 0 : best;
-    }
-
     const allMoves = [];
-
     for ( let x = 0; x < 9; x++ ) {
       for ( let y = 0; y < 9; y++ ) {
         const piece = board[ x ][ y ];
         if ( !piece || piece !== piece.toLowerCase() ) continue;
+        const legal = getPossibleMoves( piece, x, y, board );
+        for ( const [ tx, ty ] of legal ) {
+          const cap = board[ tx ][ ty ];
+          const canProm = shouldPromote( piece, x, tx ) && !piece.includes( '+' );
 
-        const legalMoves = getCachedMoves( piece, x, y, board );
-        for ( const [ tx, ty ] of legalMoves ) {
-          const captured = board[ tx ][ ty ];
-          const canPromote = shouldPromote( piece, x, tx ) && !piece.includes( '+' );
-
-          // Try move without promotion
-          const temp1 = cloneBoard( board );
-          temp1[ x ][ y ] = ' ';
-          temp1[ tx ][ ty ] = piece;
-          if ( isInCheck( 'sente', temp1 ) ) continue;
-
-          let baseScore = scoreMove( {
+          // simulate no‑promo
+          const b1 = cloneBoard( board );
+          b1[ x ][ y ] = ' ';
+          b1[ tx ][ ty ] = piece;
+          if ( isInCheck( 'sente', b1 ) ) continue;
+          const s1 = scoreMove( {
             piece,
-            captured,
+            captured: cap,
             promotes: false,
-            putsOpponentInCheck: isInCheck( 'gote', temp1 ),
-            from: [ x, y ],
-            to: [ tx, ty ]
+            putsOpponentInCheck: isInCheck( 'gote', b1 )
           } );
 
-          let bestPiece = piece;
-
-          // Try promotion
-          if ( canPromote ) {
-            const promoted = piece + '+';
-            const temp2 = cloneBoard( board );
-            temp2[ x ][ y ] = ' ';
-            temp2[ tx ][ ty ] = promoted;
-
-            if ( !isInCheck( 'sente', temp2 ) ) {
-              const promScore = scoreMove( {
-                piece: promoted,
-                captured,
+          let bestScore = s1, bestProm = false;
+          if ( canProm ) {
+            const promPiece = piece + '+';
+            const b2 = cloneBoard( board );
+            b2[ x ][ y ] = ' ';
+            b2[ tx ][ ty ] = promPiece;
+            if ( !isInCheck( 'sente', b2 ) ) {
+              const s2 = scoreMove( {
+                piece,
+                captured: cap,
                 promotes: true,
-                putsOpponentInCheck: isInCheck( 'gote', temp2 ),
-                from: [ x, y ],
-                to: [ tx, ty ]
+                putsOpponentInCheck: isInCheck( 'gote', b2 )
               } );
-
-              if ( promScore > baseScore ) {
-                baseScore = promScore;
-                bestPiece = promoted;
+              if ( s2 > bestScore ) {
+                bestScore = s2;
+                bestProm = true;
               }
             }
           }
-
-          const finalBoard = cloneBoard( board );
-          finalBoard[ x ][ y ] = ' ';
-          finalBoard[ tx ][ ty ] = bestPiece;
-          const opponentScore = evaluateOpponentBestResponse( finalBoard, capturedGote );
 
           allMoves.push( {
             type: 'move',
             from: [ x, y ],
             to: [ tx, ty ],
-            piece: bestPiece,
-            score: baseScore - opponentScore * 0.8
+            piece: bestProm ? piece + '+' : piece,
+            score: bestScore
           } );
         }
       }
     }
 
+    // drop moves
     for ( const cap of capturedSente ) {
-      const dropTargets = getDropLocations( cap, board );
-      for ( const [ dx, dy ] of dropTargets ) {
-        const temp = cloneBoard( board );
-        temp[ dx ][ dy ] = cap.toLowerCase();
-        if ( isInCheck( 'sente', temp ) ) continue;
-
-        const dropScore = scoreMove( {
-          piece: cap,
-          captured: null,
-          promotes: false,
-          putsOpponentInCheck: isInCheck( 'gote', temp ),
-          from: null,
-          to: [ dx, dy ]
-        } );
-
-        const opponentScore = evaluateOpponentBestResponse( temp, capturedGote );
-
+      const drops = getDropLocations( cap, board );
+      for ( const [ dx, dy ] of drops ) {
+        const b3 = cloneBoard( board );
+        b3[ dx ][ dy ] = cap.toLowerCase();
+        if ( isInCheck( 'sente', b3 ) ) continue;
         allMoves.push( {
           type: 'drop',
           to: [ dx, dy ],
           piece: cap,
-          score: dropScore - opponentScore * 0.8
+          score: scoreMove( {
+            piece: cap,
+            captured: null,
+            promotes: false,
+            putsOpponentInCheck: isInCheck( 'gote', b3 )
+          } )
         } );
       }
     }
 
     if ( !allMoves.length ) {
-      alert( 'AI has no legal moves.' );
+      alert( "AI has no legal moves (checkmate)." );
       return;
     }
 
     allMoves.sort( ( a, b ) => b.score - a.score );
     const best = allMoves.filter( m => m.score === allMoves[ 0 ].score );
-    const chosen = best[ Math.floor( Math.random() * best.length ) ];
+    const choice = best[ Math.floor( Math.random() * best.length ) ];
 
     setTimeout( () => {
-      if ( chosen.type === 'drop' ) {
-        handleDropCapturedPiece( chosen.piece, chosen.to[ 0 ], chosen.to[ 1 ] );
-        setLastMove( { from: null, to: chosen.to } );
+      if ( choice.type === 'drop' ) {
+        handleDropCapturedPiece( choice.piece, choice.to[ 0 ], choice.to[ 1 ] );
+        setLastMove( { from: null, to: choice.to } );
       } else {
-        movePiece( chosen.to[ 0 ], chosen.to[ 1 ], chosen.from[ 0 ], chosen.from[ 1 ], chosen.piece );
-        setLastMove( { from: chosen.from, to: chosen.to } );
+        movePiece( choice.to[ 0 ], choice.to[ 1 ], choice.from[ 0 ], choice.from[ 1 ], choice.piece );
+        setLastMove( { from: choice.from, to: choice.to } );
       }
     }, 100 );
   }, [
@@ -1141,8 +1022,9 @@ const ShogiBoard = () => {
     shouldPromote, isInCheck,
     movePiece, handleDropCapturedPiece,
     scoreMove, matchedOpening,
-    openingStep, setLastMove, capturedGote
+    openingStep, setLastMove
   ] );
+
 
   useEffect( () => {
     if ( vsAI && currentPlayer === 'sente' ) {
@@ -1207,7 +1089,11 @@ const ShogiBoard = () => {
     setLastMove( null );
     setMatchedOpening( null );
     setOpeningStep( 0 );
-    setCheckmateInfo( null ); // 👈 Add this
+    setCheckmateInfo( null );
+
+    setReplayMode( false );
+    setReplayPlaying( false );
+    setReplayIndex( 0 );
   };
 
 
@@ -1277,14 +1163,72 @@ const ShogiBoard = () => {
     }
   };
 
+  useEffect( () => {
+    if ( !replayPlaying ) return;
+    if ( !replayMode || replayIndex >= moveHistory.length ) {
+      setReplayPlaying( false );
+      return;
+    }
+
+    const interval = setInterval( () => {
+      const move = moveHistory[ replayIndex ];
+      if ( !move ) return;
+
+      setBoard( move.boardAfter.map( row => [ ...row ] ) );
+      setCapturedGote( [ ...move.capturedGoteAfter ] );
+      setCapturedSente( [ ...move.capturedSenteAfter ] );
+      setCurrentPlayer( move.playerAfter );
+      setLastMove( move.lastMoveAfter );
+      setReplayIndex( prev => prev + 1 );
+    }, replaySpeed );
+
+    return () => clearInterval( interval );
+  }, [ replayPlaying, replayIndex, replayMode, moveHistory ] );
+
+  const downloadReplayAsJSON = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent( JSON.stringify( moveHistory, null, 2 ) );
+    const dlAnchorElem = document.createElement( 'a' );
+    dlAnchorElem.setAttribute( "href", dataStr );
+    dlAnchorElem.setAttribute( "download", "shogi_replay.json" );
+    dlAnchorElem.click();
+  };
+
+  const downloadReplayAsCSV = () => {
+    const headers = [ "Move#", "Player", "From", "To", "Piece" ];
+    const rows = moveHistory.map( ( entry, idx ) => {
+      const move = entry.lastMoveAfter || {};
+      const piece = entry.boardAfter?.[ move?.to?.[ 0 ] ]?.[ move?.to?.[ 1 ] ] || '';
+      return [
+        idx + 1,
+        entry.playerBefore,
+        move.from ? `(${ move.from[ 0 ] },${ move.from[ 1 ] })` : "Drop",
+        move.to ? `(${ move.to[ 0 ] },${ move.to[ 1 ] })` : "-",
+        piece
+      ];
+    } );
+
+    const csvContent = [ headers, ...rows ]
+      .map( ( e ) => e.join( "," ) )
+      .join( "\n" );
+
+    const blob = new Blob( [ csvContent ], { type: "text/csv;charset=utf-8;" } );
+    const url = URL.createObjectURL( blob );
+    const link = document.createElement( "a" );
+    link.setAttribute( "href", url );
+    link.setAttribute( "download", "shogi_replay.csv" );
+    document.body.appendChild( link );
+    link.click();
+    document.body.removeChild( link );
+  };
+
   return (
     <>
       <>
-        <div className="hidden md:flex flex-row w-full">
-          <div className="flex flex-wrap flex-row w-fit min-h-screen object-center justify-self-center place-self-center mx-auto p-5 m-5">
-            {/* Right: Captured by Sente */ }
+        <div className="hidden sm:flex flex-col w-fit">
+          <div className="flex flex-wrap flex-row w-fit min-h-fit object-center justify-self-center place-self-center mx-auto p-5 m-5">
+            {/* Left: Captured by Sente */ }
             <div className="w-fit bg-gray-100 p-2 flex flex-wrap items-center overflow-y-auto max-h-fit">
-              <div className="flex flex-wrap float-end flex-row sm:flex-col mx-auto w-fit">
+              <div className="flex flex-wrap float-end flex-row lg:flex-row mx-auto w-fit">
                 <h3 className="text-lg font-bold mb-2">Captured by Sente</h3>
                 { groupAndSortCaptured( capturedSente ).map( ( { piece, count } ) => (
                   <div key={ piece } className="relative mb-1 w-fit text-center group">
@@ -1371,11 +1315,138 @@ const ShogiBoard = () => {
 
                     <button
                       onClick={ resetGame }
-                      className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-semibold"
+                      className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-semibold mr-2"
                     >
                       Reset Game
                     </button>
+                    { !replayMode && moveHistory.length > 0 && (
+                      <button
+                        onClick={ () => {
+                          setReplayMode( true );
+                          setReplayIndex( 0 );
+                          const first = moveHistory[ 0 ];
+                          setBoard( first.boardBefore.map( r => [ ...r ] ) );
+                          setCapturedGote( [ ...first.capturedGoteBefore ] );
+                          setCapturedSente( [ ...first.capturedSenteBefore ] );
+                          setCurrentPlayer( first.playerBefore );
+                          setLastMove( first.lastMoveBefore );
+                        } }
+                        className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-semibold ml-2"
+                      >
+                        Review Game
+                      </button>
+                    ) }
+
+                    { replayMode && (
+                      <div className="mt-4 space-x-2">
+                        { replayMode && (
+                          <div className="mt-3 space-x-3">
+                            <button
+                              onClick={ downloadReplayAsJSON }
+                              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-1 px-3 rounded text-sm"
+                            >
+                              Export JSON
+                            </button>
+                            <button
+                              onClick={ downloadReplayAsCSV }
+                              className="bg-teal-600 hover:bg-teal-700 text-white font-bold py-1 px-3 rounded text-sm"
+                            >
+                              Export CSV
+                            </button>
+                          </div>
+                        ) }
+
+                        <button
+                          onClick={ () => {
+                            setReplayPlaying( true );
+                          } }
+                          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded"
+                        >
+                          ▶ Play
+                        </button>
+                        <button
+                          onClick={ () => setReplayPlaying( false ) }
+                          className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-3 rounded"
+                        >
+                          ⏸ Pause
+                        </button>
+                        <button
+                          onClick={ () => {
+                            if ( replayIndex > 0 ) {
+                              const move = moveHistory[ replayIndex - 1 ];
+                              setReplayIndex( replayIndex - 1 );
+                              setBoard( move.boardAfter.map( row => [ ...row ] ) );
+                              setCapturedGote( [ ...move.capturedGoteAfter ] );
+                              setCapturedSente( [ ...move.capturedSenteAfter ] );
+                              setCurrentPlayer( move.playerAfter );
+                              setLastMove( move.lastMoveAfter );
+                            }
+                          } }
+                          className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-3 rounded"
+                        >
+                          ⏪ Back
+                        </button>
+                        <button
+                          onClick={ () => {
+                            if ( replayIndex < moveHistory.length ) {
+                              const move = moveHistory[ replayIndex ];
+                              setReplayIndex( replayIndex + 1 );
+                              setBoard( move.boardAfter.map( row => [ ...row ] ) );
+                              setCapturedGote( [ ...move.capturedGoteAfter ] );
+                              setCapturedSente( [ ...move.capturedSenteAfter ] );
+                              setCurrentPlayer( move.playerAfter );
+                              setLastMove( move.lastMoveAfter );
+                            }
+                          } }
+                          className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-3 rounded"
+                        >
+                          ⏩ Next
+                        </button>
+                        <button
+                          onClick={ () => {
+                            setReplayMode( false );
+                            setReplayIndex( 0 );
+                            setReplayPlaying( false );
+                            resetGame(); // exit to normal mode
+                          } }
+                          className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-3 rounded"
+                        >
+                          ⏹ Stop
+                        </button>
+                      </div>
+                    ) }
+                    { replayMode && moveHistory.length > 0 && (
+                      <div className="w-full mt-4">
+                        <input
+                          type="range"
+                          min="0"
+                          max={ moveHistory.length }
+                          value={ replayIndex }
+                          onChange={ ( e ) => {
+                            const idx = parseInt( e.target.value );
+                            setReplayIndex( idx );
+
+                            const move =
+                              idx === 0
+                                ? moveHistory[ 0 ]
+                                : moveHistory[ idx - 1 ];
+
+                            setBoard( move.boardAfter.map( ( r ) => [ ...r ] ) );
+                            setCapturedGote( [ ...move.capturedGoteAfter ] );
+                            setCapturedSente( [ ...move.capturedSenteAfter ] );
+                            setCurrentPlayer( move.playerAfter );
+                            setLastMove( move.lastMoveAfter );
+                          } }
+                          className="w-full"
+                        />
+                        <div className="text-sm text-center mt-1">
+                          Move { replayIndex } / { moveHistory.length }
+                        </div>
+                      </div>
+                    ) }
+
                   </div>
+
                 </div>
               ) }
               <div className="mt-5 mx-auto mb-4">
@@ -1410,10 +1481,13 @@ const ShogiBoard = () => {
                   Reset
                 </button>
               </div>
+
+
+
             </div>
-            {/* Left: Captured by Gote */ }
+            {/* Right: Captured by Gote */ }
             <div className="bg-gray-100 p-2 flex flex-wrap items-center overflow-y-auto max-h-fit">
-              <div className="flex float-start flex-wrap flex-row sm:flex-col mx-auto w-fit">
+              <div className="flex float-start inline-flex flex-col lg:flex-row mx-auto w-fit">
                 <h3 className="text-lg font-bold mb-2">Captured by Gote</h3>
                 { groupAndSortCaptured( capturedGote ).map( ( { piece, count } ) => (
                   <div key={ piece } className="relative mb-1 w-fit text-center group">
@@ -1442,7 +1516,7 @@ const ShogiBoard = () => {
 
       <>
         {/* Mobile Layout */ }
-        <div className="flex flex-col md:hidden w-full min-h-screen bg-white relative">
+        <div className="flex flex-col sm:hidden w-full min-h-screen bg-white relative">
           {/* Mobile Header */ }
           <div className="text-center font-bold text-lg py-2 border-b">{/* Game Info */ }
             <div className="text-2xl text-center py-2">
@@ -1475,11 +1549,9 @@ const ShogiBoard = () => {
                   <div
                     key={ `${ x }-${ y }` }
                     onClick={ () => handleSquareClick( x, y ) }
-                    className={ `
-    relative aspect-square w-full border border-black flex items-center justify-center
-    ${ isHighlighted ? 'bg-yellow-300/90' : '' }
-    ${ isHighlighted ? 'bg-yellow-300/90' : '' || isLastMoveTo ? 'bg-red-400/80 border-2 border-red-400/80 animate-pulse' : '' || isLastMoveFrom ? 'animate-pulse border-2 border-red-400/80' : '' }
-  `}
+                    className={
+                      `relative aspect-square w-full border border-black flex items-center justify-center ${ isHighlighted ? 'bg-yellow-300/90' : '' } ${ isHighlighted ? 'bg-yellow-300/90' : '' || isLastMoveTo ? 'bg-red-400/80 border-2 border-red-400/80 animate-pulse' : '' || isLastMoveFrom ? 'animate-pulse border-2 border-red-400/80' : '' }`
+                    }
                   >
                     {/* Piece image */ }
                     { piece !== ' ' && (
@@ -1493,7 +1565,7 @@ const ShogiBoard = () => {
                         />
 
                         {/* Top label (for long names only) */ }
-                        { pieceNames[ piece.replace( '+', '' ).toLowerCase() ]?.includes( ' ' ) && (
+                        { topLabel && bottomLabel && pieceNames[ piece.replace( '+', '' ).toLowerCase() ]?.includes( ' ' ) && (
                           <div className="overflow-hidden text-pretty absolute -top-[3px] font-extrabold w-full text-[7px] text-center text-black pointer-events-none px-0.5 leading-none">
                             { pieceNames[ piece.replace( '+', '' ).toLowerCase() ].split( ' ' )[ 0 ] }
                           </div>
