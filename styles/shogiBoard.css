@@ -39,8 +39,8 @@
 
 .cell
 {
-  width: 75px;
-  height: 75px;
+  width: 64px;
+  height: 64px;
   background-color: #c4c5b8;
   position: relative;
   cursor: pointer;

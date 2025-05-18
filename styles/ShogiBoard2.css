@@ -23,7 +23,7 @@
   height: auto;
   max-width: 100%;
   display: grid;
-  width: fit-content;
+  width: 100%;
   grid-template-rows: repeat(9, 1fr);
   grid-template-columns: repeat(9, 1fr);
   gap: 2px;
@@ -39,8 +39,8 @@
 
 .cell
 {
-  width: 75px;
-  height: 75px;
+  width: 64px;
+  height: 64px;
   background-color: #f0d9b5;
   position: relative;
   cursor: pointer;
