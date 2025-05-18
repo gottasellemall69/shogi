@@ -123,6 +123,8 @@ const ShogiBoard = () => {
   const [ replayIndex, setReplayIndex ] = useState( 0 );
   const [ replayPlaying, setReplayPlaying ] = useState( false );
   const [ replaySpeed, setReplaySpeed ] = useState( 1000 ); // 1 second per move
+  const [ showModal, setShowModal ] = useState( true );
+
 
 
 
@@ -1224,58 +1226,70 @@ const ShogiBoard = () => {
   return (
     <>
       <>
-        <div className="hidden sm:flex flex-col w-fit">
-          <div className="flex flex-wrap flex-row w-fit min-h-fit object-center justify-self-center place-self-center mx-auto p-5 m-5">
-            {/* Left: Captured by Sente */ }
-            <div className="w-fit bg-gray-100 p-2 flex flex-wrap items-center overflow-y-auto max-h-fit">
-              <div className="flex flex-wrap float-end flex-row lg:flex-row mx-auto w-fit">
-                <h3 className="text-lg font-bold mb-2">Captured by Sente</h3>
-                { groupAndSortCaptured( capturedSente ).map( ( { piece, count } ) => (
-                  <div key={ piece } className="relative mb-1 w-fit text-center group">
-                    <Image
-                      src={ pieceImages[ piece.toUpperCase() ] }
-                      alt={ piece }
-                      width={ 48 }
-                      height={ 48 }
-                      className="cursor-pointer object-scale-down object-center"
-                      onClick={ () => {
-                        setSelectedPiece( { piece, isCaptured: true } );
-                        setPossibleMoves( getDropLocations( piece, board ) );
-                      } } />
-                    <span className="text-xs text-center block font-semibold">×{ count }</span>
-                    {/* Hover card - left aligned */ }
-                    <div className="absolute left-full top-1/2 -translate-y-1/2 mr-2 z-50 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-90 transition-all duration-200 whitespace-nowrap">
-                      { pieceNames[ piece.toLowerCase() ] || piece }
-                    </div>
-                  </div>
-                ) ) }
-              </div>
-            </div>
-            {/* Middle: Shogi Board */ }
-            <div className="flex flex-wrap flex-col items-center justify-start p-4">
-              { lastMove && (
-                <span className="mt-2 m-2 p-2 text-sm text-gray-700 font-mono w-full h-auto mx-auto p-3 text-center">
-                  Last move: { lastMove.from
-                    ? `(${ lastMove.from[ 0 ] },${ lastMove.from[ 1 ] }) → (${ lastMove.to[ 0 ] },${ lastMove.to[ 1 ] })`
-                    : `Drop at (${ lastMove.to[ 0 ] },${ lastMove.to[ 1 ] })` }
+        <div className="grid">
+
+          <div className="hidden sm:flex flex-col w-full">
+
+            <header className='h-fit mx-auto items-center'>
+              <div className="flex flex-wrap flex-row items-center mb-4">
+                <span className="text-xl -mt-4 font-bold w-full text-center">
+                  Current Player: { currentPlayer }
+                  { isInCheck( currentPlayer ) && ` (in check)` }
                 </span>
-              ) }
-              <span className="text-xl -mt-4 font-bold w-full text-center h-auto mx-auto">
-                Current Player: { currentPlayer }
-                { isInCheck( currentPlayer ) && ` (in check)` }
-              </span>
-              <div className={ `board mx-auto w-full h-auto my-5 p-5` }>
+
+                { lastMove && (
+                  <span className="mt-2 m-2 text-sm text-gray-700 font-mono w-full text-center">
+                    Last move:{ " " }
+                    { lastMove.from
+                      ? `(${ lastMove.from[ 0 ] },${ lastMove.from[ 1 ] }) → (${ lastMove.to[ 0 ] },${ lastMove.to[ 1 ] })`
+                      : `Drop at (${ lastMove.to[ 0 ] },${ lastMove.to[ 1 ] })` }
+                  </span>
+                ) }
+              </div>
+            </header>
+
+            {/* Left Sidebar: Captured by Sente */ }
+            <aside className="sidebar-left w-full">
+              <div className="bg-gray-100 p-2 flex flex-wrap items-center overflow-y-auto max-h-fit">
+                <div className="flex flex-wrap flex-row mx-auto w-full">
+                  <h3 className="text-lg font-bold mb-2">Captured by Sente</h3>
+                  { groupAndSortCaptured( capturedSente ).map( ( { piece, count } ) => (
+                    <div key={ piece } className="relative mb-1 w-fit text-center group">
+                      <Image
+                        src={ pieceImages[ piece.toUpperCase() ] }
+                        alt={ piece }
+                        width={ 48 }
+                        height={ 48 }
+                        className="cursor-pointer object-scale-down object-center"
+                        onClick={ () => {
+                          setSelectedPiece( { piece, isCaptured: true } );
+                          setPossibleMoves( getDropLocations( piece, board ) );
+                        } } />
+                      <span className="text-xs text-center block font-semibold">×{ count }</span>
+                      <div className="absolute left-full top-1/2 -translate-y-1/2 mr-2 z-50 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-90 transition-all duration-200 whitespace-nowrap">
+                        { pieceNames[ piece.toLowerCase() ] || piece }
+                      </div>
+                    </div>
+                  ) ) }
+                </div>
+              </div>
+            </aside>
+
+            {/* Middle: Shogi Board */ }
+            <article>
+              <div className="board mx-auto w-full h-auto my-5 p-5">
                 { board.map( ( row, x ) => row.map( ( piece, y ) => (
                   <div
                     key={ `${ x }-${ y }` }
                     className={ `cell w-full aspect-square border border-gray-300 flex items-center justify-center relative 
-                      ${ possibleMoves.some( ( [ px, py ] ) => px === x && py === y ) ? 'highlight' : '' }
-                      ${ lastMove?.to?.[ 0 ] === x && lastMove?.to?.[ 1 ] === y && currentPlayer === 'gote' ? 'pulse-red' : '' }
-                      ${ lastMove?.from?.[ 0 ] === x && lastMove?.from?.[ 1 ] === y && currentPlayer === 'gote' ? 'pulse-red' : '' }` }
+                  ${ possibleMoves.some( ( [ px, py ] ) => px === x && py === y ) ? 'highlight' : '' } 
+                  ${ lastMove?.to?.[ 0 ] === x && lastMove?.to?.[ 1 ] === y && currentPlayer === 'gote' ? 'pulse-red' : '' }
+                  ${ lastMove?.from?.[ 0 ] === x && lastMove?.from?.[ 1 ] === y && currentPlayer === 'gote' ? 'pulse-red' : '' }
+                `}
                     onClick={ () => handleSquareClick( x, y ) }
                   >
                     { piece !== ' ' && (
-                      <div className='relative group'>
+                      <div className="relative group">
                         <Image
                           className={ `object-contain ${ piece === piece.toLowerCase() ? 'rotate-180' : '' }` }
                           src={ pieceImages[ piece ] }
@@ -1291,7 +1305,8 @@ const ShogiBoard = () => {
                 ) )
                 ) }
               </div>
-              { gameOver && checkmateInfo && (
+
+              { gameOver && checkmateInfo && showModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                   <div className="bg-white rounded-lg shadow-xl max-w-sm w-full p-5 text-center">
                     <h2 className="text-xl font-bold text-red-600 mb-3">Checkmate!</h2>
@@ -1303,25 +1318,21 @@ const ShogiBoard = () => {
                     </p>
                     { checkmateInfo.lastMove && (
                       <p className="text-sm text-gray-700 mb-1">
-                        <strong>Last Move:</strong>{ ' ' }
+                        <strong>Last Move:</strong>{ " " }
                         { checkmateInfo.lastMove.from
                           ? `(${ checkmateInfo.lastMove.from[ 0 ] },${ checkmateInfo.lastMove.from[ 1 ] }) → (${ checkmateInfo.lastMove.to[ 0 ] },${ checkmateInfo.lastMove.to[ 1 ] })`
                           : `Drop at (${ checkmateInfo.lastMove.to[ 0 ] },${ checkmateInfo.lastMove.to[ 1 ] })` }
                       </p>
                     ) }
-                    <p className="text-xs text-gray-600 mt-3">
-                      No legal moves remain to escape check.
-                    </p>
-
-                    <button
-                      onClick={ resetGame }
-                      className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-semibold mr-2"
-                    >
+                    <p className="text-xs text-gray-600 mt-3">No legal moves remain to escape check.</p>
+                    <button onClick={ resetGame } className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-semibold mr-2">
                       Reset Game
                     </button>
+
                     { !replayMode && moveHistory.length > 0 && (
                       <button
                         onClick={ () => {
+                          setShowModal( false );
                           setReplayMode( true );
                           setReplayIndex( 0 );
                           const first = moveHistory[ 0 ];
@@ -1336,190 +1347,161 @@ const ShogiBoard = () => {
                         Review Game
                       </button>
                     ) }
-
-                    { replayMode && (
-                      <div className="mt-4 space-x-2">
-                        { replayMode && (
-                          <div className="mt-3 space-x-3">
-                            <button
-                              onClick={ downloadReplayAsJSON }
-                              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-1 px-3 rounded text-sm"
-                            >
-                              Export JSON
-                            </button>
-                            <button
-                              onClick={ downloadReplayAsCSV }
-                              className="bg-teal-600 hover:bg-teal-700 text-white font-bold py-1 px-3 rounded text-sm"
-                            >
-                              Export CSV
-                            </button>
-                          </div>
-                        ) }
-
-                        <button
-                          onClick={ () => {
-                            setReplayPlaying( true );
-                          } }
-                          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded"
-                        >
-                          ▶ Play
-                        </button>
-                        <button
-                          onClick={ () => setReplayPlaying( false ) }
-                          className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-3 rounded"
-                        >
-                          ⏸ Pause
-                        </button>
-                        <button
-                          onClick={ () => {
-                            if ( replayIndex > 0 ) {
-                              const move = moveHistory[ replayIndex - 1 ];
-                              setReplayIndex( replayIndex - 1 );
-                              setBoard( move.boardAfter.map( row => [ ...row ] ) );
-                              setCapturedGote( [ ...move.capturedGoteAfter ] );
-                              setCapturedSente( [ ...move.capturedSenteAfter ] );
-                              setCurrentPlayer( move.playerAfter );
-                              setLastMove( move.lastMoveAfter );
-                            }
-                          } }
-                          className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-3 rounded"
-                        >
-                          ⏪ Back
-                        </button>
-                        <button
-                          onClick={ () => {
-                            if ( replayIndex < moveHistory.length ) {
-                              const move = moveHistory[ replayIndex ];
-                              setReplayIndex( replayIndex + 1 );
-                              setBoard( move.boardAfter.map( row => [ ...row ] ) );
-                              setCapturedGote( [ ...move.capturedGoteAfter ] );
-                              setCapturedSente( [ ...move.capturedSenteAfter ] );
-                              setCurrentPlayer( move.playerAfter );
-                              setLastMove( move.lastMoveAfter );
-                            }
-                          } }
-                          className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-3 rounded"
-                        >
-                          ⏩ Next
-                        </button>
-                        <button
-                          onClick={ () => {
-                            setReplayMode( false );
-                            setReplayIndex( 0 );
-                            setReplayPlaying( false );
-                            resetGame(); // exit to normal mode
-                          } }
-                          className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-3 rounded"
-                        >
-                          ⏹ Stop
-                        </button>
-                      </div>
-                    ) }
-                    { replayMode && moveHistory.length > 0 && (
-                      <div className="w-full mt-4">
-                        <input
-                          type="range"
-                          min="0"
-                          max={ moveHistory.length }
-                          value={ replayIndex }
-                          onChange={ ( e ) => {
-                            const idx = parseInt( e.target.value );
-                            setReplayIndex( idx );
-
-                            const move =
-                              idx === 0
-                                ? moveHistory[ 0 ]
-                                : moveHistory[ idx - 1 ];
-
-                            setBoard( move.boardAfter.map( ( r ) => [ ...r ] ) );
-                            setCapturedGote( [ ...move.capturedGoteAfter ] );
-                            setCapturedSente( [ ...move.capturedSenteAfter ] );
-                            setCurrentPlayer( move.playerAfter );
-                            setLastMove( move.lastMoveAfter );
-                          } }
-                          className="w-full"
-                        />
-                        <div className="text-sm text-center mt-1">
-                          Move { replayIndex } / { moveHistory.length }
-                        </div>
-                      </div>
-                    ) }
-
                   </div>
-
                 </div>
               ) }
-              <div className="mt-5 mx-auto mb-4">
+            </article>
+
+            {/* Right Sidebar: Captured by Gote */ }
+            <aside className="w-full sidebar-right">
+              <div className="bg-gray-100 p-2 flex flex-wrap items-center overflow-y-auto max-h-fit">
+                <div className="flex inline-flex flex-row mx-auto w-full">
+                  <h3 className="text-lg font-bold mb-2">Captured by Gote</h3>
+                  { groupAndSortCaptured( capturedGote ).map( ( { piece, count } ) => (
+                    <div key={ piece } className="relative mb-1 w-fit text-center group">
+                      <Image
+                        src={ pieceImages[ piece.toLowerCase() ] }
+                        alt={ piece }
+                        width={ 48 }
+                        height={ 48 }
+                        className="cursor-pointer object-scale-down object-center"
+                        onClick={ () => {
+                          setSelectedPiece( { piece, isCaptured: true } );
+                          setPossibleMoves( getDropLocations( piece, board ) );
+                        } } />
+                      <span className="text-xs text-center block font-semibold">×{ count }</span>
+                      <div className="absolute top-full top-1/2 -translate-y-1/2 ml-2 z-50 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-90 transition-all duration-200 whitespace-nowrap">
+                        { pieceNames[ piece.toLowerCase() ] || piece }
+                      </div>
+                    </div>
+                  ) ) }
+                </div>
+              </div>
+            </aside>
+
+            {/* Footer */ }
+            <footer className="w-full px-4 py-2">
+              { replayMode && (
+                <div className="mt-4 space-y-4">
+                  <div className="space-x-3">
+                    <button onClick={ downloadReplayAsJSON } className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-1 px-3 rounded text-sm">
+                      Export JSON
+                    </button>
+                    <button onClick={ downloadReplayAsCSV } className="bg-teal-600 hover:bg-teal-700 text-white font-bold py-1 px-3 rounded text-sm">
+                      Export CSV
+                    </button>
+                  </div>
+                  <div className="space-x-2">
+                    <button onClick={ () => setReplayPlaying( true ) } className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded">
+                      ▶ Play
+                    </button>
+                    <button onClick={ () => setReplayPlaying( false ) } className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-3 rounded">
+                      ⏸ Pause
+                    </button>
+                    <button
+                      onClick={ () => {
+                        if ( replayIndex > 0 ) {
+                          const move = moveHistory[ replayIndex - 1 ];
+                          setReplayIndex( replayIndex - 1 );
+                          setBoard( move.boardAfter.map( row => [ ...row ] ) );
+                          setCapturedGote( [ ...move.capturedGoteAfter ] );
+                          setCapturedSente( [ ...move.capturedSenteAfter ] );
+                          setCurrentPlayer( move.playerAfter );
+                          setLastMove( move.lastMoveAfter );
+                        }
+                      } }
+                      className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-3 rounded"
+                    >
+                      ⏪ Back
+                    </button>
+                    <button
+                      onClick={ () => {
+                        if ( replayIndex < moveHistory.length ) {
+                          const move = moveHistory[ replayIndex ];
+                          setReplayIndex( replayIndex + 1 );
+                          setBoard( move.boardAfter.map( row => [ ...row ] ) );
+                          setCapturedGote( [ ...move.capturedGoteAfter ] );
+                          setCapturedSente( [ ...move.capturedSenteAfter ] );
+                          setCurrentPlayer( move.playerAfter );
+                          setLastMove( move.lastMoveAfter );
+                        }
+                      } }
+                      className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-3 rounded"
+                    >
+                      ⏩ Next
+                    </button>
+                    <button
+                      onClick={ () => {
+                        setReplayMode( false );
+                        setReplayIndex( 0 );
+                        setReplayPlaying( false );
+                        resetGame();
+                      } }
+                      className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-3 rounded"
+                    >
+                      ⏹ Stop
+                    </button>
+                  </div>
+
+                  <div className="w-full mt-4">
+                    <input
+                      type="range"
+                      min="0"
+                      max={ moveHistory.length }
+                      value={ replayIndex }
+                      onChange={ ( e ) => {
+                        const idx = parseInt( e.target.value );
+                        setReplayIndex( idx );
+                        const move = idx === 0 ? moveHistory[ 0 ] : moveHistory[ idx - 1 ];
+                        setBoard( move.boardAfter.map( ( r ) => [ ...r ] ) );
+                        setCapturedGote( [ ...move.capturedGoteAfter ] );
+                        setCapturedSente( [ ...move.capturedSenteAfter ] );
+                        setCurrentPlayer( move.playerAfter );
+                        setLastMove( move.lastMoveAfter );
+                      } }
+                      className="w-full" />
+                    <div className="text-sm text-center mt-1">Move { replayIndex } / { moveHistory.length }</div>
+                  </div>
+                </div>
+              ) }
+
+              <div className="mt-5 mx-auto mb-4 text-center">
                 <button
-                  type='button'
+                  type="button"
                   onClick={ () => setVsAI( prev => !prev ) }
                   className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
                 >
                   { vsAI ? 'Switch to Player vs Player' : 'Switch to Play vs AI' }
                 </button>
               </div>
+
               <div className="mt-4 flex justify-between space-x-4">
-                <button
-                  type='button'
-                  className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-                  onClick={ handleUndo }
-                >
+                <button type="button" className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded" onClick={ handleUndo }>
                   Undo
                 </button>
-                <button
-                  type='button'
-                  className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-                  onClick={ handleRedo }
-                >
+                <button type="button" className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded" onClick={ handleRedo }>
                   Redo
                 </button>
-                <button
-                  type='reset'
-                  className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
-                  onClick={ resetGame }
-                >
+                <button type="reset" className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded" onClick={ resetGame }>
                   Reset
                 </button>
               </div>
-
-
-
-            </div>
-            {/* Right: Captured by Gote */ }
-            <div className="bg-gray-100 p-2 flex flex-wrap items-center overflow-y-auto max-h-fit">
-              <div className="flex float-start inline-flex flex-col lg:flex-row mx-auto w-fit">
-                <h3 className="text-lg font-bold mb-2">Captured by Gote</h3>
-                { groupAndSortCaptured( capturedGote ).map( ( { piece, count } ) => (
-                  <div key={ piece } className="relative mb-1 w-fit text-center group">
-                    <Image
-                      src={ pieceImages[ piece.toLowerCase() ] }
-                      alt={ piece }
-                      width={ 48 }
-                      height={ 48 }
-                      className="cursor-pointer object-scale-down object-center"
-                      onClick={ () => {
-                        setSelectedPiece( { piece, isCaptured: true } );
-                        setPossibleMoves( getDropLocations( piece, board ) );
-                      } } />
-                    <span className="text-xs text-center block font-semibold">×{ count }</span>
-                    {/* Hover card - right aligned */ }
-                    <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 z-50 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-90 transition-all duration-200 whitespace-nowrap">
-                      { pieceNames[ piece.toLowerCase() ] || piece }
-                    </div>
-                  </div>
-                ) ) }
-              </div>
-            </div>
+            </footer>
           </div>
         </div>
       </>
 
+
+
+
+
+
       <>
         {/* Mobile Layout */ }
-        <div className="flex flex-col sm:hidden w-full min-h-screen bg-white relative">
+        <div className="sm:hidden w-full h-full bg-white relative">
           {/* Mobile Header */ }
           <div className="text-center font-bold text-lg py-2 border-b">{/* Game Info */ }
-            <div className="text-2xl text-center py-2">
+            <div className="text-xl text-center py-2">
               Current Player: <strong>{ currentPlayer }</strong>
               { isInCheck( currentPlayer ) && <span className="text-red-600"> (in check)</span> }
               { lastMove && (
@@ -1528,61 +1510,60 @@ const ShogiBoard = () => {
                   { lastMove.from ? `(${ lastMove.from[ 0 ] },${ lastMove.from[ 1 ] }) → (${ lastMove.to[ 0 ] },${ lastMove.to[ 1 ] })` : `Drop at (${ lastMove.to[ 0 ] },${ lastMove.to[ 1 ] })` }
                 </div>
               ) }
-            </div></div>
+            </div>
+          </div>
 
 
 
           {/* Mobile Board */ }
-          <div className="grid grid-cols-9 gap-0.5 px-2 bg-gray-200/80">
-            { board.map( ( row, x ) =>
-              row.map( ( piece, y ) => {
-                const isHighlighted = possibleMoves.some( ( [ px, py ] ) => px === x && py === y );
-                const isLastMoveTo = lastMove?.to?.[ 0 ] === x && lastMove?.to?.[ 1 ] === y;
-                const isLastMoveFrom = lastMove?.from?.[ 0 ] === x && lastMove?.from?.[ 1 ] === y;
+          <div className="shogi-board w-full min-h-fit">
+            { board.map( ( row, x ) => row.map( ( piece, y ) => {
+              const isHighlighted = possibleMoves.some( ( [ px, py ] ) => px === x && py === y );
+              const isLastMoveTo = lastMove?.to?.[ 0 ] === x && lastMove?.to?.[ 1 ] === y;
+              const isLastMoveFrom = lastMove?.from?.[ 0 ] === x && lastMove?.from?.[ 1 ] === y;
 
-                const name = pieceNames[ piece.replace( '+', '' ).toLowerCase() ] || '';
-                const nameWords = name.split( ' ' );
-                const topLabel = nameWords.length > 1 ? nameWords[ 0 ] : '';
-                const bottomLabel = nameWords.length > 1 ? nameWords.slice( 1 ).join( ' ' ) : name;
+              const name = pieceNames[ piece.replace( '+', '' ).toLowerCase() ] || '';
+              const nameWords = name.split( ' ' );
+              const topLabel = nameWords.length > 1 ? nameWords[ 0 ] : '';
+              const bottomLabel = nameWords.length > 1 ? nameWords.slice( 1 ).join( ' ' ) : name;
 
-                return (
-                  <div
-                    key={ `${ x }-${ y }` }
-                    onClick={ () => handleSquareClick( x, y ) }
-                    className={
-                      `relative aspect-square w-full border border-black flex items-center justify-center ${ isHighlighted ? 'bg-yellow-300/90' : '' } ${ isHighlighted ? 'bg-yellow-300/90' : '' || isLastMoveTo ? 'bg-red-400/80 border-2 border-red-400/80 animate-pulse' : '' || isLastMoveFrom ? 'animate-pulse border-2 border-red-400/80' : '' }`
-                    }
-                  >
-                    {/* Piece image */ }
-                    { piece !== ' ' && (
-                      <>
-                        <Image
-                          src={ pieceImages[ piece ] }
-                          alt={ piece }
-                          width={ 32 }
-                          height={ 32 }
-                          className={ `${ piece === piece.toLowerCase() ? 'rotate-180' : '' }` }
-                        />
+              return (
+                <div
+                  key={ `${ x }-${ y }` }
+                  onClick={ () => handleSquareClick( x, y ) }
+                  className={ `
+    relative aspect-square h-full w-full text-white border border-black flex items-center justify-center
+    ${ isHighlighted ? 'bg-yellow-300/90' : '' }
+    ${ isHighlighted ? 'bg-yellow-300/90' : '' || isLastMoveTo ? 'bg-red-400/80 border-2 border-red-400/80 animate-pulse' : '' || isLastMoveFrom ? 'animate-pulse border-2 border-red-400/80' : '' }
+  `}
+                >
+                  {/* Piece image */ }
+                  { piece !== ' ' && (
+                    <>
+                      <Image
+                        src={ pieceImages[ piece ] }
+                        alt={ piece }
+                        width={ 32 }
+                        height={ 32 }
+                        className={ `${ piece === piece.toLowerCase() ? 'rotate-180' : '' }` } />
 
-                        {/* Top label (for long names only) */ }
-                        { topLabel && bottomLabel && pieceNames[ piece.replace( '+', '' ).toLowerCase() ]?.includes( ' ' ) && (
-                          <div className="overflow-hidden text-pretty absolute -top-[3px] font-extrabold w-full text-[7px] text-center text-black pointer-events-none px-0.5 leading-none">
-                            { pieceNames[ piece.replace( '+', '' ).toLowerCase() ].split( ' ' )[ 0 ] }
-                          </div>
-                        ) }
-
-                        {/* Bottom label (always shown) */ }
-                        <div className="overflow-hidden text-pretty absolute -bottom-[3.5px] font-extrabold w-full text-[7px] text-center text-black pointer-events-none px-0.5 leading-none">
-                          {
-                            pieceNames[ piece.replace( '+', '' ).toLowerCase() ].split( ' ' ).slice( -1 ).join( ' ' )
-                          }
+                      {/* Top label (for long names only) */ }
+                      { topLabel && pieceNames[ piece.replace( '+', '' ).toLowerCase() ]?.includes( ' ' ) && (
+                        <div className="overflow-hidden text-pretty absolute -top-[3px] font-extrabold w-full text-[12px] text-center text-neutral-800 pointer-events-none px-0.5 leading-none">
+                          { pieceNames[ piece.replace( '+', '' ).toLowerCase() ].split( ' ' )[ 0 ] }
                         </div>
-                      </>
-                    ) }
-                  </div>
+                      ) }
 
-                );
-              } )
+                      {/* Bottom label (always shown) */ }
+                      <div className="overflow-hidden text-pretty absolute -bottom-[3.5px] font-extrabold w-full text-[12px] text-center text-neutral-800 pointer-events-none px-0.5 leading-none">
+                        { bottomLabel && pieceNames[ piece.replace( '+', '' ).toLowerCase() ].split( ' ' ).slice( -1 ).join( ' ' ) }
+                      </div>
+                    </>
+                  ) }
+                </div>
+
+              );
+            } )
             ) }
           </div>
 
@@ -1614,12 +1595,122 @@ const ShogiBoard = () => {
                 >
                   Reset Game
                 </button>
+                { !replayMode && moveHistory.length > 0 && (
+                  <button
+                    onClick={ () => {
+                      setShowModal( false );
+                      setReplayMode( true );
+                      setReplayIndex( 0 );
+                      const first = moveHistory[ 0 ];
+                      setBoard( first.boardBefore.map( r => [ ...r ] ) );
+                      setCapturedGote( [ ...first.capturedGoteBefore ] );
+                      setCapturedSente( [ ...first.capturedSenteBefore ] );
+                      setCurrentPlayer( first.playerBefore );
+                      setLastMove( first.lastMoveBefore );
+                    } }
+                    className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-semibold ml-2"
+                  >
+                    Review Game
+                  </button>
+                ) }
               </div>
+              { replayMode && (
+                <div className="mt-4 space-y-4">
+                  <div className="space-x-3">
+                    <button onClick={ downloadReplayAsJSON } className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-1 px-3 rounded text-sm">
+                      Export JSON
+                    </button>
+                    <button onClick={ downloadReplayAsCSV } className="bg-teal-600 hover:bg-teal-700 text-white font-bold py-1 px-3 rounded text-sm">
+                      Export CSV
+                    </button>
+                  </div>
+                  <div className="space-x-2">
+                    <button onClick={ () => setReplayPlaying( true ) } className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded">
+                      ▶ Play
+                    </button>
+                    <button onClick={ () => setReplayPlaying( false ) } className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-3 rounded">
+                      ⏸ Pause
+                    </button>
+                    <button
+                      onClick={ () => {
+                        if ( replayIndex > 0 ) {
+                          const move = moveHistory[ replayIndex - 1 ];
+                          setReplayIndex( replayIndex - 1 );
+                          setBoard( move.boardAfter.map( row => [ ...row ] ) );
+                          setCapturedGote( [ ...move.capturedGoteAfter ] );
+                          setCapturedSente( [ ...move.capturedSenteAfter ] );
+                          setCurrentPlayer( move.playerAfter );
+                          setLastMove( move.lastMoveAfter );
+                        }
+                      } }
+                      className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-3 rounded"
+                    >
+                      ⏪ Back
+                    </button>
+                    <button
+                      onClick={ () => {
+                        if ( replayIndex < moveHistory.length ) {
+                          const move = moveHistory[ replayIndex ];
+                          setReplayIndex( replayIndex + 1 );
+                          setBoard( move.boardAfter.map( row => [ ...row ] ) );
+                          setCapturedGote( [ ...move.capturedGoteAfter ] );
+                          setCapturedSente( [ ...move.capturedSenteAfter ] );
+                          setCurrentPlayer( move.playerAfter );
+                          setLastMove( move.lastMoveAfter );
+                        }
+                      } }
+                      className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-3 rounded"
+                    >
+                      ⏩ Next
+                    </button>
+                    <button
+                      onClick={ () => {
+                        setReplayMode( false );
+                        setReplayIndex( 0 );
+                        setReplayPlaying( false );
+                        resetGame();
+                      } }
+                      className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-3 rounded"
+                    >
+                      ⏹ Stop
+                    </button>
+                  </div>
+
+                  <div className="w-full mt-4">
+                    <input
+                      type="range"
+                      min="0"
+                      max={ moveHistory.length }
+                      value={ replayIndex }
+                      onChange={ ( e ) => {
+                        const idx = parseInt( e.target.value );
+                        setReplayIndex( idx );
+                        const move = idx === 0 ? moveHistory[ 0 ] : moveHistory[ idx - 1 ];
+                        setBoard( move.boardAfter.map( ( r ) => [ ...r ] ) );
+                        setCapturedGote( [ ...move.capturedGoteAfter ] );
+                        setCapturedSente( [ ...move.capturedSenteAfter ] );
+                        setCurrentPlayer( move.playerAfter );
+                        setLastMove( move.lastMoveAfter );
+                      } }
+                      className="w-full" />
+                    <div className="text-sm text-center mt-1">Move { replayIndex } / { moveHistory.length }</div>
+                  </div>
+                </div>
+              ) }
             </div>
           ) }
 
 
           {/* Sticky Control Buttons */ }
+          <div className="mt-5 mx-auto mb-4 text-center">
+            <button
+              type="button"
+              onClick={ () => setVsAI( prev => !prev ) }
+              className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
+            >
+              { vsAI ? 'Switch to Player vs Player' : 'Switch to Play vs AI' }
+            </button>
+          </div>
           <div className="fixed bottom-16 left-0 right-0 bg-gray-100 flex justify-evenly py-2 z-40">
             <button onClick={ handleUndo } className="border border-black text-blue-600 font-bold">Undo</button>
             <button onClick={ handleRedo } className="border border-black text-blue-600 font-bold">Redo</button>
@@ -1667,10 +1758,12 @@ const ShogiBoard = () => {
                         <Image
                           src={ pieceImages[ piece.toLowerCase() ] }
                           alt={ piece }
-                          width={ 32 }
-                          height={ 32 }
-                        />
-                        <div className="text-xs">×{ count }</div>
+                          width={ 48 }
+                          height={ 48 } />
+                        <span className="text-xs text-center block font-semibold">×{ count }</span>
+                        <div className="absolute top-full top-1/2 -translate-y-1/2 ml-2 z-50 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-90 transition-all duration-200 whitespace-nowrap">
+                          { pieceNames[ piece.toLowerCase() ] || piece }
+                        </div>
                       </div>
                     );
                   } ) }
@@ -1697,10 +1790,12 @@ const ShogiBoard = () => {
                         <Image
                           src={ pieceImages[ piece.toUpperCase() ] }
                           alt={ piece }
-                          width={ 32 }
-                          height={ 32 }
-                        />
-                        <div className="text-xs">x{ count }</div>
+                          width={ 48 }
+                          height={ 48 } />
+                        <span className="text-xs text-center block font-semibold">×{ count }</span>
+                        <div className="absolute top-full top-1/2 -translate-y-1/2 ml-2 z-50 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-90 transition-all duration-200 whitespace-nowrap">
+                          { pieceNames[ piece.toLowerCase() ] || piece }
+                        </div>
                       </div>
                     );
                   } ) }
@@ -1714,5 +1809,4 @@ const ShogiBoard = () => {
     </>
   );
 };
-
 export default ShogiBoard;
