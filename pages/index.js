@@ -25,8 +25,31 @@ const openingBook = [
       { from: [ 7, 7 ], to: [ 5, 7 ], piece: "r" },
       { from: [ 1, 1 ], to: [ 3, 1 ], piece: "R" }
     ]
+  },
+  {
+    name: "Static Rook",
+    sequence: [
+      { from: [ 6, 6 ], to: [ 5, 6 ], piece: "p" },
+      { from: [ 2, 2 ], to: [ 3, 2 ], piece: "P" },
+      { from: [ 7, 7 ], to: [ 6, 7 ], piece: "r" },
+      { from: [ 1, 1 ], to: [ 2, 1 ], piece: "R" },
+      { from: [ 8, 6 ], to: [ 7, 6 ], piece: "g" },
+      { from: [ 0, 2 ], to: [ 1, 2 ], piece: "G" }
+    ]
+  },
+  {
+    name: "Fourth File Rook",
+    sequence: [
+      { from: [ 6, 3 ], to: [ 5, 3 ], piece: "p" },
+      { from: [ 2, 5 ], to: [ 3, 5 ], piece: "P" },
+      { from: [ 7, 7 ], to: [ 7, 3 ], piece: "r" },
+      { from: [ 1, 1 ], to: [ 1, 5 ], piece: "R" },
+      { from: [ 8, 3 ], to: [ 7, 3 ], piece: "s" },
+      { from: [ 0, 5 ], to: [ 1, 5 ], piece: "S" }
+    ]
   }
 ];
+
 
 function hashMove( { from, to, piece } ) {
   if ( !from || !to || !piece ) return '';
@@ -856,18 +879,23 @@ const ShogiBoard = () => {
 
 
 
-  const scoreMove = ( { piece, captured, promotes, putsOpponentInCheck } ) => {
+  const scoreMove = ( { piece, captured, promotes, putsOpponentInCheck, to } ) => {
     const val = pieceValue[ piece.replace( '+', '' ).toLowerCase() ] || 0;
     const capturedVal = captured ? ( pieceValue[ captured.replace( '+', '' ).toLowerCase() ] || 0 ) : 0;
 
+    const [ x, y ] = to || [ 0, 0 ];
+    const centerBonus = ( 4 - Math.abs( 4 - x ) ) + ( 4 - Math.abs( 4 - y ) ); // closer to center = better
+
     let score = 0;
-    score += capturedVal;
+    score += capturedVal * 1.2;
     score += promotes ? 2.5 : 0;
     score += putsOpponentInCheck ? 2 : 0;
-    score -= val * 0.4; // discourage trading down
+    score += centerBonus * 0.2;
+    score -= val * 0.4;
 
     return score;
   };
+
 
   const matchOpeningBook = () => {
     for ( const book of openingBook ) {
@@ -945,7 +973,8 @@ const ShogiBoard = () => {
             piece,
             captured: cap,
             promotes: false,
-            putsOpponentInCheck: isInCheck( 'gote', b1 )
+            putsOpponentInCheck: isInCheck( 'gote', b1 ),
+            to: [ tx, ty ]
           } );
 
           let bestScore = s1, bestProm = false;
@@ -994,7 +1023,8 @@ const ShogiBoard = () => {
             piece: cap,
             captured: null,
             promotes: false,
-            putsOpponentInCheck: isInCheck( 'gote', b3 )
+            putsOpponentInCheck: isInCheck( 'gote', b3 ),
+            to: [ dx, dy ]
           } )
         } );
       }
@@ -1003,6 +1033,40 @@ const ShogiBoard = () => {
     if ( !allMoves.length ) {
       alert( "AI has no legal moves (checkmate)." );
       return;
+    }
+
+    for ( const move of allMoves ) {
+      const simulatedBoard = cloneBoard( board );
+      if ( move.type === 'move' ) {
+        simulatedBoard[ move.from[ 0 ] ][ move.from[ 1 ] ] = ' ';
+        simulatedBoard[ move.to[ 0 ] ][ move.to[ 1 ] ] = move.piece;
+      } else {
+        simulatedBoard[ move.to[ 0 ] ][ move.to[ 1 ] ] = move.piece.toLowerCase();
+      }
+
+      // Simulate Gote’s best reply
+      let worstReplyScore = Infinity;
+      for ( let x = 0; x < 9; x++ ) {
+        for ( let y = 0; y < 9; y++ ) {
+          const piece = simulatedBoard[ x ][ y ];
+          if ( !piece || piece !== piece.toUpperCase() ) continue;
+
+          const legal = getPossibleMoves( piece, x, y, simulatedBoard );
+          for ( const [ tx, ty ] of legal ) {
+            const cap = simulatedBoard[ tx ][ ty ];
+            const s = scoreMove( {
+              piece,
+              captured: cap,
+              promotes: false,
+              putsOpponentInCheck: false,
+              to: [ tx, ty ]
+            } );
+            worstReplyScore = Math.min( worstReplyScore, s );
+          }
+        }
+      }
+
+      move.score -= 0.4 * worstReplyScore; // Penalize for leaving an opening
     }
 
     allMoves.sort( ( a, b ) => b.score - a.score );
@@ -1655,93 +1719,91 @@ const ShogiBoard = () => {
               </div>
             </div>
           ) }
-          { replayMode && (
-            <div className="mt-4 gap-5 mx-auto w-full justify-evenly">
-              <div className="space-x-5">
-                <button onClick={ downloadReplayAsJSON } className="float-left bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-1 px-3 rounded text-sm">
-                  Export JSON
-                </button>
-                <button onClick={ downloadReplayAsCSV } className="float-left bg-teal-600 hover:bg-teal-700 text-white font-bold py-1 px-3 rounded text-sm">
-                  Export CSV
-                </button>
-              </div>
-              <div className="space-x-3 space-y-5">
-                <button onClick={ () => setReplayPlaying( true ) } className="float-right bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded">
-                  ▶ Play
-                </button>
-                <button onClick={ () => setReplayPlaying( false ) } className="float-right bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-3 rounded">
-                  ⏸ Pause
-                </button>
-                <button
-                  onClick={ () => {
-                    if ( replayIndex > 0 ) {
-                      const move = moveHistory[ replayIndex - 1 ];
-                      setReplayIndex( replayIndex - 1 );
-                      setBoard( move.boardAfter.map( row => [ ...row ] ) );
+          <>
+            { replayMode && (
+              <div className="mt-4 gap-5 mx-auto w-full justify-evenly">
+                <div className="space-x-5">
+                  <button onClick={ downloadReplayAsJSON } className="float-left bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-1 px-3 rounded text-sm">
+                    Export JSON
+                  </button>
+                  <button onClick={ downloadReplayAsCSV } className="float-left bg-teal-600 hover:bg-teal-700 text-white font-bold py-1 px-3 rounded text-sm">
+                    Export CSV
+                  </button>
+                </div>
+                <div className="space-x-3 space-y-5">
+                  <button onClick={ () => setReplayPlaying( true ) } className="float-right bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded">
+                    ▶ Play
+                  </button>
+                  <button onClick={ () => setReplayPlaying( false ) } className="float-right bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-3 rounded">
+                    ⏸ Pause
+                  </button>
+                  <button
+                    onClick={ () => {
+                      if ( replayIndex > 0 ) {
+                        const move = moveHistory[ replayIndex - 1 ];
+                        setReplayIndex( replayIndex - 1 );
+                        setBoard( move.boardAfter.map( row => [ ...row ] ) );
+                        setCapturedGote( [ ...move.capturedGoteAfter ] );
+                        setCapturedSente( [ ...move.capturedSenteAfter ] );
+                        setCurrentPlayer( move.playerAfter );
+                        setLastMove( move.lastMoveAfter );
+                      }
+                    } }
+                    className="float-left bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-3 rounded"
+                  >
+                    ⏪ Back
+                  </button>
+                  <button
+                    onClick={ () => {
+                      if ( replayIndex < moveHistory.length ) {
+                        const move = moveHistory[ replayIndex ];
+                        setReplayIndex( replayIndex + 1 );
+                        setBoard( move.boardAfter.map( row => [ ...row ] ) );
+                        setCapturedGote( [ ...move.capturedGoteAfter ] );
+                        setCapturedSente( [ ...move.capturedSenteAfter ] );
+                        setCurrentPlayer( move.playerAfter );
+                        setLastMove( move.lastMoveAfter );
+                      }
+                    } }
+                    className="float-left bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-3 rounded"
+                  >
+                    ⏩ Next
+                  </button>
+                  <button
+                    onClick={ () => {
+                      setReplayMode( false );
+                      setReplayIndex( 0 );
+                      setReplayPlaying( false );
+                      resetGame();
+                    } }
+                    className="float-right bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-3 rounded"
+                  >
+                    ⏹ Stop
+                  </button>
+                </div>
+
+                <div className="w-full mt-4">
+                  <input
+                    type="range"
+                    min="0"
+                    max={ moveHistory.length }
+                    value={ replayIndex }
+                    onChange={ ( e ) => {
+                      const idx = parseInt( e.target.value );
+                      setReplayIndex( idx );
+                      const move = idx === 0 ? moveHistory[ 0 ] : moveHistory[ idx - 1 ];
+                      setBoard( move.boardAfter.map( ( r ) => [ ...r ] ) );
                       setCapturedGote( [ ...move.capturedGoteAfter ] );
                       setCapturedSente( [ ...move.capturedSenteAfter ] );
                       setCurrentPlayer( move.playerAfter );
                       setLastMove( move.lastMoveAfter );
-                    }
-                  } }
-                  className="float-left bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-3 rounded"
-                >
-                  ⏪ Back
-                </button>
-                <button
-                  onClick={ () => {
-                    if ( replayIndex < moveHistory.length ) {
-                      const move = moveHistory[ replayIndex ];
-                      setReplayIndex( replayIndex + 1 );
-                      setBoard( move.boardAfter.map( row => [ ...row ] ) );
-                      setCapturedGote( [ ...move.capturedGoteAfter ] );
-                      setCapturedSente( [ ...move.capturedSenteAfter ] );
-                      setCurrentPlayer( move.playerAfter );
-                      setLastMove( move.lastMoveAfter );
-                    }
-                  } }
-                  className="float-left bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-3 rounded"
-                >
-                  ⏩ Next
-                </button>
-                <button
-                  onClick={ () => {
-                    setReplayMode( false );
-                    setReplayIndex( 0 );
-                    setReplayPlaying( false );
-                    resetGame();
-                  } }
-                  className="float-right bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-3 rounded"
-                >
-                  ⏹ Stop
-                </button>
+                    } }
+                    className="w-full" />
+                  <div className="text-sm text-center mt-1">Move { replayIndex } / { moveHistory.length }</div>
+                </div>
               </div>
-
-              <div className="w-full mt-4">
-                <input
-                  type="range"
-                  min="0"
-                  max={ moveHistory.length }
-                  value={ replayIndex }
-                  onChange={ ( e ) => {
-                    const idx = parseInt( e.target.value );
-                    setReplayIndex( idx );
-                    const move = idx === 0 ? moveHistory[ 0 ] : moveHistory[ idx - 1 ];
-                    setBoard( move.boardAfter.map( ( r ) => [ ...r ] ) );
-                    setCapturedGote( [ ...move.capturedGoteAfter ] );
-                    setCapturedSente( [ ...move.capturedSenteAfter ] );
-                    setCurrentPlayer( move.playerAfter );
-                    setLastMove( move.lastMoveAfter );
-                  } }
-                  className="w-full" />
-                <div className="text-sm text-center mt-1">Move { replayIndex } / { moveHistory.length }</div>
-              </div>
-            </div>
-          ) }
-
-
-
-
+            ) }
+          </>
           {/* Sticky Control Buttons */ }
           <div className="relative mt-5 mx-auto mb-4 text-center">
             <button
