@@ -23,11 +23,11 @@
   height: auto;
   max-width: 100%;
   display: grid;
-  width: 100%;
+  width: fit-content;
   grid-template-rows: repeat(9, 1fr);
   grid-template-columns: repeat(9, 1fr);
-  gap: 2px;
-  background-color: #f3f3f3;
+  gap: 0px;
+  background-color: #ffffff;
   padding: 5px;
   border-radius: 8px;
 }
@@ -56,7 +56,7 @@
 
 .highlight
 {
-  background-color: rgba(0, 255, 0, 0.4);
+  background-color: rgb(217, 255, 0);
   /* Light green for possible moves */
 }
 

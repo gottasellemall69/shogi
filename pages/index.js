@@ -1290,16 +1290,16 @@ const ShogiBoard = () => {
   return (
     <>
       <>
-        <div className="mx-auto hidden sm:block mx-auto">
-          <header className='h-fit mx-auto items-center w-fit'>
-            <div className="flex flex-wrap flex-row items-center mb-4">
-              <span className="text-xl font-bold w-fit h-fit text-center">
+        <div className="mx-auto hidden sm:block mx-auto max-w-fit">
+          <header className='h-fit mx-auto items-center w-full max-w-7xl mt-5'>
+            <div className="flex flex-wrap flex-col items-center">
+              <span className="text-xl font-bold w-full max-w-7xl h-auto text-center">
                 Current Player: { currentPlayer }
                 { isInCheck( currentPlayer ) && ` (in check)` }
               </span>
 
               { lastMove && (
-                <span className="mt-2 m-2 text-sm text-gray-700 font-mono w-fit text-center">
+                <span className="mt-2 text-sm text-gray-700 font-mono w-full max-w-7xl text-center">
                   Last move:{ " " }
                   { lastMove.from
                     ? `(${ lastMove.from[ 0 ] },${ lastMove.from[ 1 ] }) → (${ lastMove.to[ 0 ] },${ lastMove.to[ 1 ] })`
@@ -1311,10 +1311,10 @@ const ShogiBoard = () => {
 
           {/* Left Sidebar: Captured by Sente */ }
 
-          <aside className="sidebar-left mx-auto float-left flex flex-row w-full">
+          <aside className="sidebar-left mx-auto float-left flex flex-row w-full h-auto my-5 captured">
             <h3 className="text-lg font-bold mb-2">Captured by Sente</h3>
             { groupAndSortCaptured( capturedSente ).map( ( { piece, count } ) => (
-              <div key={ piece } className=" mb-1 w-fit text-center group">
+              <div key={ piece } className=" mb-1 w-fit max-w-7xl text-center group">
                 { pieceImages[ piece.toUpperCase() ] ? (
                   <Image
                     src={ pieceImages[ piece.toUpperCase() ] }
@@ -1328,7 +1328,7 @@ const ShogiBoard = () => {
                     } } />
                 ) : null }
                 <span className="text-xs text-center block font-semibold">×{ count }</span>
-                <div className="absolute left-full top-1/2 -translate-y-1/2 mr-2 z-50 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-90 transition-all duration-200 whitespace-nowrap">
+                <div className="absolute  mr-2 z-50 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-90 transition-all duration-200 whitespace-nowrap">
                   { pieceNames[ piece.toLowerCase() ] || piece }
                 </div>
               </div>
@@ -1338,13 +1338,13 @@ const ShogiBoard = () => {
 
 
 
-          <article className=' w-fit mx-auto'>
+          <article className='w-full'>
             {/* Middle: Shogi Board */ }
-            <div className="board mx-auto w-full">
+            <div className="board mx-auto w-fit">
               { board.map( ( row, x ) => row.map( ( piece, y ) => (
                 <div
                   key={ `${ x }-${ y }` }
-                  className={ `cell w-fit aspect-square border border-gray-300 flex items-center justify-center relative 
+                  className={ `aspect-square square border border-gray-300 flex items-center justify-center relative 
                   ${ possibleMoves.some( ( [ px, py ] ) => px === x && py === y ) ? 'highlight' : '' } 
                   ${ lastMove?.to?.[ 0 ] === x && lastMove?.to?.[ 1 ] === y && currentPlayer === 'gote' ? 'pulse-red' : '' }
                   ${ lastMove?.from?.[ 0 ] === x && lastMove?.from?.[ 1 ] === y && currentPlayer === 'gote' ? 'pulse-red' : '' }
@@ -1370,12 +1370,13 @@ const ShogiBoard = () => {
               ) }
             </div>
           </article>
+
           {/* Right Sidebar: Captured by Gote */ }
-          <aside className="mx-auto w-full sidebar-right float-right flex flex-row">
+          <aside className="mx-auto w-full max-w-7xl sidebar-right float-right flex flex-row">
             <h3 className="text-lg font-bold mb-2">Captured by Gote</h3>
 
             { groupAndSortCaptured( capturedGote ).map( ( { piece, count } ) => (
-              <div key={ piece } className=" mb-1 w-fit w-auto text-center group">
+              <div key={ piece } className=" mb-1 w-fit max-w-7xl w-auto text-center group">
                 { pieceImages[ piece.toUpperCase() ] ? (
                   <Image
                     src={ pieceImages[ piece.toLowerCase() ] }
@@ -1389,7 +1390,7 @@ const ShogiBoard = () => {
                     } } />
                 ) : null }
                 <span className="text-xs text-center block font-semibold">×{ count }</span>
-                <div className="absolute top-full top-1/2 -translate-y-1/2 ml-2 z-50 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-90 transition-all duration-200 whitespace-nowrap">
+                <div className="absolute  ml-2 z-50 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-90 transition-all duration-200 whitespace-nowrap">
                   { pieceNames[ piece.toLowerCase() ] || piece }
                 </div>
               </div>
@@ -1537,7 +1538,7 @@ const ShogiBoard = () => {
                 </div>
               </div>
             ) }
-            <div className="mt-4 flex mx-auto w-fit justify-evenly space-x-4">
+            <div className="mt-4 flex mx-auto w-full max-w-7xl justify-evenly space-x-4">
               <button type="button" className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded" onClick={ handleUndo }>
                 Undo
               </button>
@@ -1563,7 +1564,7 @@ const ShogiBoard = () => {
 
       <>
         {/* Mobile Layout */ }
-        <div className="sm:hidden w-full h-full relative">
+        <div className="sm:hidden w-full h-auto relative">
           {/* Mobile Header */ }
           <div className="text-center font-bold text-lg py-2 border-b">{/* Game Info */ }
             <div className="text-xl text-center py-2">
@@ -1579,7 +1580,7 @@ const ShogiBoard = () => {
           </div>
 
           {/* Mobile Board */ }
-          <div className="shogi-board w-full h-full">
+          <div className="board w-full h-auto">
             { board.map( ( row, x ) => row.map( ( piece, y ) => {
               const isHighlighted = possibleMoves.some( ( [ px, py ] ) => px === x && py === y );
               const isLastMoveTo = lastMove?.to?.[ 0 ] === x && lastMove?.to?.[ 1 ] === y;
@@ -1595,7 +1596,7 @@ const ShogiBoard = () => {
                   key={ `${ x }-${ y }` }
                   onClick={ () => handleSquareClick( x, y ) }
                   className={ `
-    relative aspect-square h-full w-full text-white border border-black flex items-center justify-center
+    relative aspect-square h-auto w-full text-white border border-black flex items-center justify-center
     ${ isHighlighted ? 'bg-yellow-300/90' : '' }
     ${ isHighlighted ? 'bg-yellow-300/90' : '' || isLastMoveTo ? 'bg-red-400/80 border-2 border-red-400/80 animate-pulse' : '' || isLastMoveFrom ? 'animate-pulse border-2 border-red-400/80' : '' }
   `}
@@ -1606,8 +1607,8 @@ const ShogiBoard = () => {
                       <Image
                         src={ pieceImages[ piece ] }
                         alt={ piece }
-                        width={ 32 }
-                        height={ 32 }
+                        width={ 48 }
+                        height={ 48 }
                         className={ `object-scale-down ${ piece === piece.toLowerCase() ? 'rotate-180' : '' }` } />
 
                       {/* Top label (for long names only) */ }
@@ -1618,7 +1619,7 @@ const ShogiBoard = () => {
                       ) }
 
                       {/* Bottom label (always shown) */ }
-                      <div className="overflow-hidden text-pretty absolute -top-[25%] font-black w-full text-[12px] text-center text-neutral-800 pointer-events-none px-0.5 leading-none">
+                      <div className="overflow-hidden text-pretty absolute -top-[2%] font-black w-full text-xs text-center text-gray-800 pointer-events-none px-0.5 leading-none">
                         { bottomLabel && pieceNames[ piece.replace( '+', '' ).toLowerCase() ].split( ' ' ).slice( -1 ).join( ' ' ) }
                       </div>
                     </>

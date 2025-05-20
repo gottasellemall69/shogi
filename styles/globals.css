@@ -13,19 +13,8 @@
   :root
   {
     --background: #0a0a0a;
-    --foreground: #ededed;
+    --foreground: #ffffff;
   }
-}
-
-body
-{
-  font-family: Arial, sans-serif;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: min-content;
-  background-color: #f5f5f5;
-  padding: 10px;
 }
 
 img
@@ -45,11 +34,11 @@ img
   display: grid;
   grid-template-columns: repeat(9, 1fr);
   grid-template-rows: repeat(9, 1fr);
-  gap: 1px;
+  gap: 0px;
   width: 100%;
   height: auto;
   max-height: fit-content;
-  background-color: #f0d9b5;
+  background-color: #ffffff;
 }
 
 .square
@@ -57,7 +46,7 @@ img
   width: 64px;
   height: 64px;
   background-color: #efefef;
-  border: 1px solid #aaa;
+  border: 1px solid #000000;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -108,32 +97,6 @@ button
 {
   margin: 5%;
   font-size: 24px;
-}
-
-.board-grid
-{
-  display: grid;
-  place-items: center;
-  grid-template-columns: repeat(9, 1fr);
-  width: 100%;
-  gap: 2px;
-}
-
-.board-row
-{
-  display: contents;
-  /* Allows each cell to follow the grid structure */
-}
-
-.board-cell
-{
-  aspect-ratio: 1;
-  /* Ensures each cell is square */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: #f0d9b5;
-  border: 1px solid #333;
 }
 
 @keyframes pulse-red

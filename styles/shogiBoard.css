@@ -8,7 +8,7 @@
   align-items: center;
   justify-content: center;
   min-height: fit-content;
-  background-color: #f8f8f8;
+  background-color: #ffffff;
   /* Optional background for the app */
 }
 
@@ -21,14 +21,14 @@
 {
   max-height: 100%;
   height: auto;
-  max-width: max-content;
+  max-width: fit-content;
   display: grid;
   width: 100%;
   grid-template-rows: repeat(9, 1fr);
   grid-template-columns: repeat(9, 1fr);
-  gap: 2px;
+  gap: 0px;
   background-color: #f3f3f3;
-  padding: 5px;
+  padding: 0px;
   border-radius: 8px;
 }
 
@@ -39,8 +39,8 @@
 
 .cell
 {
-  width: 64px;
-  height: 64px;
+  width: 48px;
+  height: 48px;
   background-color: #c4c5b8;
   position: relative;
   cursor: pointer;
@@ -56,7 +56,7 @@
 
 .highlight
 {
-  background-color: rgba(0, 255, 0, 0.4);
+  background-color: rgb(255, 251, 0);
   /* Light green for possible moves */
 }
 
@@ -70,5 +70,5 @@
   padding: 2%;
   width: 100%;
   display: block;
-  flex-direction: column;
+  flex-direction: row;
 }
