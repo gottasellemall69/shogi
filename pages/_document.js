@@ -4,11 +4,9 @@ export default function Document() {
   return (
     <Html lang="en">
       <Head />
-      <body className="antialiased mx-auto w-full h-fit">
-        <div className='mx-auto p-3 flex flex-wrap w-full'>
-          <article className='mx-auto w-full col-span-1'>
-            <Main />
-          </article>
+      <body className="antialiased mx-auto w-fit h-fit">
+        <div className='mx-auto'>
+          <Main />
         </div>
         <NextScript />
       </body>
