@@ -1,11 +1,11 @@
 import { Html, Head, Main, NextScript } from "next/document";
 
-export default function Document() {
+export default async function Document() {
   return (
     <Html lang="en">
       <Head />
-      <body className="antialiased mx-auto w-fit h-full">
-        <div className='mx-auto aspect-1'>
+      <body className="antialiased mx-auto max-w-full h-full">
+        <div className='mx-auto'>
           <Main />
         </div>
         <NextScript />

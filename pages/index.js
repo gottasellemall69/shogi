@@ -931,147 +931,331 @@ const ShogiBoard = () => {
   const performAIMove = useCallback( async () => {
     if ( currentPlayer !== 'sente' || gameOver ) return;
 
-    // 1) Opening‑book check
+    // 1) Opening-book check
     const bookMatch = matchedOpening
       ? { book: matchedOpening, entry: matchedOpening.sequence[ openingStep ] }
       : matchOpeningBook();
     if ( bookMatch ) {
       const { book, entry } = bookMatch;
       const { from, to, piece } = entry;
-      // execute book move
       movePiece( to[ 0 ], to[ 1 ], from[ 0 ], from[ 1 ], piece );
       setLastMove( { from, to } );
-      // advance
       setMatchedOpening( book );
       setOpeningStep( openingStep + 1 );
       return;
     }
 
-    // 2) Fallback to your existing evaluation logic
+    // 2) Advanced AI with proper move generation
     const cloneBoard = b => {
       const nb = Array( 9 );
       for ( let i = 0; i < 9; i++ ) nb[ i ] = b[ i ].slice();
       return nb;
     };
 
-    const allMoves = [];
-    for ( let x = 0; x < 9; x++ ) {
-      for ( let y = 0; y < 9; y++ ) {
-        const piece = board[ x ][ y ];
-        if ( !piece || piece !== piece.toLowerCase() ) continue;
-        const legal = getPossibleMoves( piece, x, y, board );
-        for ( const [ tx, ty ] of legal ) {
-          const cap = board[ tx ][ ty ];
-          const canProm = shouldPromote( piece, x, tx ) && !piece.includes( '+' );
+    // Performance monitoring
+    let nodesEvaluated = 0;
+    const MAX_NODES = 100000;
+    const startTime = Date.now();
+    const MAX_TIME = 8000; // 8 second timeout
 
-          // simulate no‑promo
-          const b1 = cloneBoard( board );
-          b1[ x ][ y ] = ' ';
-          b1[ tx ][ ty ] = piece;
-          if ( isInCheck( 'sente', b1 ) ) continue;
-          const s1 = scoreMove( {
-            piece,
-            captured: cap,
-            promotes: false,
-            putsOpponentInCheck: isInCheck( 'gote', b1 ),
-            to: [ tx, ty ]
-          } );
+    const isTimeUp = () => {
+      return Date.now() - startTime > MAX_TIME || nodesEvaluated > MAX_NODES;
+    };
 
-          let bestScore = s1, bestProm = false;
-          if ( canProm ) {
-            const promPiece = piece + '+';
-            const b2 = cloneBoard( board );
-            b2[ x ][ y ] = ' ';
-            b2[ tx ][ ty ] = promPiece;
-            if ( !isInCheck( 'sente', b2 ) ) {
-              const s2 = scoreMove( {
-                piece,
-                captured: cap,
-                promotes: true,
-                putsOpponentInCheck: isInCheck( 'gote', b2 )
-              } );
-              if ( s2 > bestScore ) {
-                bestScore = s2;
-                bestProm = true;
-              }
-            }
-          }
+    // Enhanced position evaluation
+    const evaluatePosition = ( board, forPlayer ) => {
+      nodesEvaluated++;
 
-          allMoves.push( {
-            type: 'move',
-            from: [ x, y ],
-            to: [ tx, ty ],
-            piece: bestProm ? piece + '+' : piece,
-            score: bestScore
-          } );
-        }
-      }
-    }
+      let score = 0;
 
-    // drop moves
-    for ( const cap of capturedSente ) {
-      const drops = getDropLocations( cap, board );
-      for ( const [ dx, dy ] of drops ) {
-        const b3 = cloneBoard( board );
-        b3[ dx ][ dy ] = cap.toLowerCase();
-        if ( isInCheck( 'sente', b3 ) ) continue;
-        allMoves.push( {
-          type: 'drop',
-          to: [ dx, dy ],
-          piece: cap,
-          score: scoreMove( {
-            piece: cap,
-            captured: null,
-            promotes: false,
-            putsOpponentInCheck: isInCheck( 'gote', b3 ),
-            to: [ dx, dy ]
-          } )
-        } );
-      }
-    }
+      const pieceValues = {
+        'p': 100, 'l': 300, 'n': 350, 's': 400, 'g': 500, 'b': 750, 'r': 900, 'k': 10000,
+        'P': 100, 'L': 300, 'N': 350, 'S': 400, 'G': 500, 'B': 750, 'R': 900, 'K': 10000,
+        '+p': 550, '+l': 550, '+n': 550, '+s': 550, '+b': 950, '+r': 1100,
+        '+P': 550, '+L': 550, '+N': 550, '+S': 550, '+B': 950, '+R': 1100
+      };
 
-    if ( !allMoves.length ) {
-      alert( "AI has no legal moves (checkmate)." );
-      return;
-    }
+      const centerSquares = [ [ 3, 3 ], [ 3, 4 ], [ 3, 5 ], [ 4, 3 ], [ 4, 4 ], [ 4, 5 ], [ 5, 3 ], [ 5, 4 ], [ 5, 5 ] ];
 
-    for ( const move of allMoves ) {
-      const simulatedBoard = cloneBoard( board );
-      if ( move.type === 'move' ) {
-        simulatedBoard[ move.from[ 0 ] ][ move.from[ 1 ] ] = ' ';
-        simulatedBoard[ move.to[ 0 ] ][ move.to[ 1 ] ] = move.piece;
-      } else {
-        simulatedBoard[ move.to[ 0 ] ][ move.to[ 1 ] ] = move.piece.toLowerCase();
-      }
-
-      // Simulate Gote’s best reply
-      let worstReplyScore = Infinity;
       for ( let x = 0; x < 9; x++ ) {
         for ( let y = 0; y < 9; y++ ) {
-          const piece = simulatedBoard[ x ][ y ];
-          if ( !piece || piece !== piece.toUpperCase() ) continue;
+          const piece = board[ x ][ y ];
+          if ( !piece || piece === ' ' ) continue;
 
-          const legal = getPossibleMoves( piece, x, y, simulatedBoard );
-          for ( const [ tx, ty ] of legal ) {
-            const cap = simulatedBoard[ tx ][ ty ];
-            const s = scoreMove( {
-              piece,
-              captured: cap,
-              promotes: false,
-              putsOpponentInCheck: false,
-              to: [ tx, ty ]
-            } );
-            worstReplyScore = Math.min( worstReplyScore, s );
+          const isUpperCase = piece === piece.toUpperCase();
+          const piecePlayer = isUpperCase ? 'gote' : 'sente';
+          const baseValue = pieceValues[ piece ] || 0;
+          let pieceScore = baseValue;
+
+          // Positional bonuses
+          if ( centerSquares.some( ( [ cx, cy ] ) => cx === x && cy === y ) ) {
+            pieceScore += 50;
+          }
+
+          // King safety
+          if ( piece.toLowerCase() === 'k' ) {
+            let defenders = 0;
+            for ( let dx = -1; dx <= 1; dx++ ) {
+              for ( let dy = -1; dy <= 1; dy++ ) {
+                const nx = x + dx, ny = y + dy;
+                if ( nx >= 0 && nx < 9 && ny >= 0 && ny < 9 ) {
+                  const neighbor = board[ nx ][ ny ];
+                  if ( neighbor && neighbor !== ' ' ) {
+                    const neighborPlayer = neighbor === neighbor.toUpperCase() ? 'gote' : 'sente';
+                    if ( neighborPlayer === piecePlayer ) defenders++;
+                  }
+                }
+              }
+            }
+            pieceScore += defenders * 100;
+          }
+
+          // Promotion zone bonus
+          if ( piecePlayer === 'sente' && x <= 2 && !piece.includes( '+' ) ) {
+            pieceScore += 100;
+          } else if ( piecePlayer === 'gote' && x >= 6 && !piece.includes( '+' ) ) {
+            pieceScore += 100;
+          }
+
+          if ( piecePlayer === forPlayer ) {
+            score += pieceScore;
+          } else {
+            score -= pieceScore;
           }
         }
       }
 
-      move.score -= 0.4 * worstReplyScore; // Penalize for leaving an opening
+      // Check evaluation with error handling
+      try {
+        if ( isInCheck( forPlayer, board ) ) score -= 500;
+        if ( isInCheck( forPlayer === 'sente' ? 'gote' : 'sente', board ) ) score += 300;
+      } catch ( e ) {
+        // Ignore check detection errors in evaluation
+      }
+
+      return score;
+    };
+
+    // Generate ALL legal moves without artificial limits
+    const generateAllMoves = ( board, player ) => {
+      const moves = [];
+
+      // Generate piece moves - NO LIMITS
+      for ( let x = 0; x < 9; x++ ) {
+        for ( let y = 0; y < 9; y++ ) {
+          const piece = board[ x ][ y ];
+          if ( !piece || piece === ' ' ) continue;
+
+          const isUpperCase = piece === piece.toUpperCase();
+          const piecePlayer = isUpperCase ? 'gote' : 'sente';
+          if ( piecePlayer !== player ) continue;
+
+          try {
+            const legal = getPossibleMoves( piece, x, y, board );
+            for ( const [ tx, ty ] of legal ) {
+              const cap = board[ tx ][ ty ];
+              const canProm = shouldPromote && shouldPromote( piece, x, tx ) && !piece.includes( '+' );
+
+              // Non-promotion move
+              const b1 = cloneBoard( board );
+              b1[ x ][ y ] = ' ';
+              b1[ tx ][ ty ] = piece;
+
+              try {
+                if ( !isInCheck( player, b1 ) ) {
+                  moves.push( {
+                    type: 'move',
+                    from: [ x, y ],
+                    to: [ tx, ty ],
+                    piece: piece,
+                    board: b1,
+                    capturedPiece: cap && cap !== ' ' ? cap : null
+                  } );
+                }
+              } catch ( e ) {
+                // If check detection fails, assume move is legal
+                moves.push( {
+                  type: 'move',
+                  from: [ x, y ],
+                  to: [ tx, ty ],
+                  piece: piece,
+                  board: b1,
+                  capturedPiece: cap && cap !== ' ' ? cap : null
+                } );
+              }
+
+              // Promotion move
+              if ( canProm ) {
+                const promPiece = piece + '+';
+                const b2 = cloneBoard( board );
+                b2[ x ][ y ] = ' ';
+                b2[ tx ][ ty ] = promPiece;
+
+                try {
+                  if ( !isInCheck( player, b2 ) ) {
+                    moves.push( {
+                      type: 'move',
+                      from: [ x, y ],
+                      to: [ tx, ty ],
+                      piece: promPiece,
+                      board: b2,
+                      capturedPiece: cap && cap !== ' ' ? cap : null
+                    } );
+                  }
+                } catch ( e ) {
+                  // If check detection fails, assume move is legal
+                  moves.push( {
+                    type: 'move',
+                    from: [ x, y ],
+                    to: [ tx, ty ],
+                    piece: promPiece,
+                    board: b2,
+                    capturedPiece: cap && cap !== ' ' ? cap : null
+                  } );
+                }
+              }
+            }
+          } catch ( e ) {
+            console.warn( 'Error generating moves for piece:', piece, e );
+          }
+        }
+      }
+
+      // Generate ALL drop moves
+      if ( player === 'sente' && capturedSente && capturedSente.length > 0 ) {
+        for ( const cap of capturedSente ) {
+          try {
+            const drops = getDropLocations( cap, board );
+            for ( const [ dx, dy ] of drops ) {
+              const b3 = cloneBoard( board );
+              b3[ dx ][ dy ] = cap.toLowerCase();
+
+              try {
+                if ( !isInCheck( 'sente', b3 ) ) {
+                  moves.push( {
+                    type: 'drop',
+                    to: [ dx, dy ],
+                    piece: cap,
+                    board: b3,
+                    capturedPiece: null
+                  } );
+                }
+              } catch ( e ) {
+                // If check detection fails, assume move is legal
+                moves.push( {
+                  type: 'drop',
+                  to: [ dx, dy ],
+                  piece: cap,
+                  board: b3,
+                  capturedPiece: null
+                } );
+              }
+            }
+          } catch ( e ) {
+            console.warn( 'Error generating drop moves for:', cap, e );
+          }
+        }
+      }
+
+      return moves;
+    };
+
+    // Simple minimax with limited depth but unlimited move generation
+    const minimax = ( board, depth, alpha, beta, maximizingPlayer ) => {
+      if ( isTimeUp() ) return maximizingPlayer ? -9999 : 9999;
+      if ( depth <= 0 ) return evaluatePosition( board, 'sente' );
+
+      const currentPlayer = maximizingPlayer ? 'sente' : 'gote';
+      const allMoves = generateAllMoves( board, currentPlayer );
+
+      if ( allMoves.length === 0 ) {
+        return maximizingPlayer ? -9999 : 9999;
+      }
+
+      // Limit moves only for deep searches to prevent slowdown
+      const moves = depth >= 2 ? allMoves.slice( 0, Math.min( allMoves.length, 40 ) ) : allMoves;
+
+      // Move ordering - prioritize captures and promotions
+      moves.sort( ( a, b ) => {
+        let scoreA = 0, scoreB = 0;
+        if ( a.capturedPiece ) scoreA += 1000;
+        if ( b.capturedPiece ) scoreB += 1000;
+        if ( a.piece && a.piece.includes( '+' ) ) scoreA += 500;
+        if ( b.piece && b.piece.includes( '+' ) ) scoreB += 500;
+        return scoreB - scoreA;
+      } );
+
+      if ( maximizingPlayer ) {
+        let maxEval = -Infinity;
+        let bestMove = null;
+
+        for ( const move of moves ) {
+          if ( isTimeUp() ) break;
+
+          const evaluation = minimax( move.board, depth - 1, alpha, beta, false );
+
+          if ( evaluation > maxEval ) {
+            maxEval = evaluation;
+            bestMove = move;
+          }
+
+          alpha = Math.max( alpha, evaluation );
+          if ( beta <= alpha ) break;
+        }
+
+        return depth === 2 ? { move: bestMove, score: maxEval } : maxEval;
+      } else {
+        let minEval = Infinity;
+
+        for ( const move of moves ) {
+          if ( isTimeUp() ) break;
+
+          const evaluation = minimax( move.board, depth - 1, alpha, beta, true );
+          minEval = Math.min( minEval, evaluation );
+          beta = Math.min( beta, evaluation );
+          if ( beta <= alpha ) break;
+        }
+
+        return minEval;
+      }
+    };
+
+    // Execute search with proper fallback
+    let result;
+    try {
+      result = minimax( board, 2, -Infinity, Infinity, true );
+    } catch ( e ) {
+      console.warn( 'Minimax error, falling back to all moves:', e );
+      result = null;
     }
 
-    allMoves.sort( ( a, b ) => b.score - a.score );
-    const best = allMoves.filter( m => m.score === allMoves[ 0 ].score );
-    const choice = best[ Math.floor( Math.random() * best.length ) ];
+    // If minimax failed or no result, use all available moves
+    if ( !result || !result.move ) {
+      console.log( 'Using fallback move selection' );
+      const allMoves = generateAllMoves( board, 'sente' );
+
+      if ( allMoves.length === 0 ) {
+        console.log( 'Truly no legal moves available' );
+        alert( "AI has no legal moves (checkmate)." );
+        return;
+      }
+
+      // Score moves simply and pick best
+      for ( const move of allMoves ) {
+        let score = 0;
+        if ( move.capturedPiece ) score += 100;
+        if ( move.piece && move.piece.includes( '+' ) ) score += 50;
+        score += Math.random() * 10;
+        move.score = score;
+      }
+
+      allMoves.sort( ( a, b ) => b.score - a.score );
+      result = { move: allMoves[ 0 ], score: allMoves[ 0 ].score };
+    }
+
+    console.log( `AI evaluated ${ nodesEvaluated } nodes in ${ Date.now() - startTime }ms` );
+
+    const choice = result.move;
 
     setTimeout( () => {
       if ( choice.type === 'drop' ) {
@@ -1081,23 +1265,21 @@ const ShogiBoard = () => {
         movePiece( choice.to[ 0 ], choice.to[ 1 ], choice.from[ 0 ], choice.from[ 1 ], choice.piece );
         setLastMove( { from: choice.from, to: choice.to } );
       }
-    }, 100 );
+    }, 300 );
+
   }, [
     board, currentPlayer, gameOver,
     getPossibleMoves, capturedSente,
     shouldPromote, isInCheck,
     movePiece, handleDropCapturedPiece,
-    scoreMove, matchedOpening,
-    openingStep, setLastMove
+    matchedOpening, openingStep, setLastMove
   ] );
-
 
   useEffect( () => {
     if ( vsAI && currentPlayer === 'sente' ) {
       performAIMove();
     }
-  }, [ currentPlayer, vsAI, performAIMove, setLastMove ] );
-
+  }, [ currentPlayer, vsAI, performAIMove ] );
 
   // Undo the last move
   const handleUndo = () => {
@@ -1163,13 +1345,13 @@ const ShogiBoard = () => {
   };
 
 
-  const handleSquareClick = ( x, y ) => {
+  const handleSquareClick = async ( x, y ) => {
     const piece = board[ x ][ y ];
     const isGotePiece = piece === piece.toUpperCase();
     const isSentePiece = piece !== ' ' && piece === piece.toLowerCase();
 
     if ( selectedPiece?.isCaptured ) {
-      if ( possibleMoves.some( ( [ px, py ] ) => px === x && py === y ) ) {
+      if ( possibleMoves?.some( ( [ px, py ] ) => px === x && py === y ) ) {
         handleDropCapturedPiece( selectedPiece.piece, x, y );
       } else {
         alert( 'Invalid drop location!' );
@@ -1183,7 +1365,7 @@ const ShogiBoard = () => {
       if ( selectedPiece.x === x && selectedPiece.y === y ) {
         setSelectedPiece( null );
         setPossibleMoves( [] );
-      } else if ( possibleMoves.some( ( [ px, py ] ) => px === x && py === y ) ) {
+      } else if ( possibleMoves?.some( ( [ px, py ] ) => px === x && py === y ) ) {
         movePiece( x, y );
       } else if (
         piece !== ' ' &&
@@ -1290,171 +1472,155 @@ const ShogiBoard = () => {
   return (
     <>
       <>
-        <div className="mx-auto hidden sm:block mx-auto max-w-fit">
-          <header className='h-fit mx-auto items-center w-full max-w-7xl mt-5'>
-            <div className="flex flex-wrap flex-col items-center">
-              <span className="text-xl font-bold w-full max-w-7xl h-auto text-center">
-                Current Player: { currentPlayer }
-                { isInCheck( currentPlayer ) && ` (in check)` }
+        <div className="min-h-screen flex flex-col mx-auto hidden sm:block">
+          <header className="bg-red-50 p-2 h-[20vh] flex flex-wrap sm:h-auto mx-auto w-full">
+            <span className="text-2xl font-bold w-full mx-auto my-2 text-center">
+              Current Player: { currentPlayer }
+              { isInCheck( currentPlayer ) && ` (in check)` }
+            </span>
+            <br />
+            { lastMove && (
+              <span className="my-2  text-sm text-gray-700 font-mono w-full text-center">
+                Last move:{ " " }
+                { lastMove.from ? `(${ lastMove.from[ 0 ] },${ lastMove.from[ 1 ] }) → (${ lastMove.to[ 0 ] },${ lastMove.to[ 1 ] })` : `Drop at (${ lastMove.to[ 0 ] },${ lastMove.to[ 1 ] })` }
               </span>
-
-              { lastMove && (
-                <span className="mt-2 text-sm text-gray-700 font-mono w-full max-w-7xl text-center">
-                  Last move:{ " " }
-                  { lastMove.from
-                    ? `(${ lastMove.from[ 0 ] },${ lastMove.from[ 1 ] }) → (${ lastMove.to[ 0 ] },${ lastMove.to[ 1 ] })`
-                    : `Drop at (${ lastMove.to[ 0 ] },${ lastMove.to[ 1 ] })` }
-                </span>
-              ) }
-            </div>
+            ) }
           </header>
-
-          {/* Left Sidebar: Captured by Sente */ }
-
-          <aside className="sidebar-left mx-auto float-left flex flex-row w-full h-auto my-5 captured">
-            <h3 className="text-lg font-bold mb-2">Captured by Sente</h3>
-            { groupAndSortCaptured( capturedSente ).map( ( { piece, count } ) => (
-              <div key={ piece } className=" mb-1 w-fit max-w-7xl text-center group">
-                { pieceImages[ piece.toUpperCase() ] ? (
-                  <Image
-                    src={ pieceImages[ piece.toUpperCase() ] }
-                    alt={ piece }
-                    width={ 48 }
-                    height={ 48 }
-                    className="cursor-pointer object-scale-down object-center"
-                    onClick={ () => {
-                      setSelectedPiece( { piece, isCaptured: true } );
-                      setPossibleMoves( getDropLocations( piece, board ) );
-                    } } />
-                ) : null }
-                <span className="text-xs text-center block font-semibold">×{ count }</span>
-                <div className="absolute  mr-2 z-50 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-90 transition-all duration-200 whitespace-nowrap">
-                  { pieceNames[ piece.toLowerCase() ] || piece }
-                </div>
-              </div>
-            ) ) }
-          </aside>
-
-
-
-
-          <article className='w-full'>
-            {/* Middle: Shogi Board */ }
-            <div className="board mx-auto w-fit">
-              { board.map( ( row, x ) => row.map( ( piece, y ) => (
-                <div
-                  key={ `${ x }-${ y }` }
-                  className={ `aspect-square square border border-gray-300 flex items-center justify-center relative 
+          <div className="flex-1 flex flex-col sm:flex-row">
+            <main className="flex-1 bg-indigo-100 p-2 mx-auto w-full">
+              <div className="board min-h-full mx-auto w-fit max-w-full">
+                { board.map( ( row, x ) => row.map( ( piece, y ) => (
+                  <div
+                    key={ `${ x }-${ y }` }
+                    className={ `cell aspect-square border border-gray-300
                   ${ possibleMoves.some( ( [ px, py ] ) => px === x && py === y ) ? 'highlight' : '' } 
                   ${ lastMove?.to?.[ 0 ] === x && lastMove?.to?.[ 1 ] === y && currentPlayer === 'gote' ? 'pulse-red' : '' }
                   ${ lastMove?.from?.[ 0 ] === x && lastMove?.from?.[ 1 ] === y && currentPlayer === 'gote' ? 'pulse-red' : '' }
                 `}
-                  onClick={ () => handleSquareClick( x, y ) }
-                >
-                  { piece !== ' ' && pieceImages[ piece ] && (
-                    <div className="relative group">
-                      <Image
-                        className={ `object-scale-down ${ piece === piece.toLowerCase() ? 'rotate-180' : '' }` }
-                        src={ pieceImages[ piece ] }
-                        alt={ piece }
-                        width={ 48 }
-                        height={ 48 }
-                      />
-                      <div className="absolute z-50 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-90 transition-all duration-200 -top-8 left-1/2 -translate-x-1/2 pointer-events-none whitespace-nowrap">
-                        { pieceNames[ piece.replace( '+', '' ).toLowerCase() ] || piece }
-                      </div>
-                    </div>
-                  ) }
-                </div>
-              ) )
-              ) }
-            </div>
-          </article>
-
-          {/* Right Sidebar: Captured by Gote */ }
-          <aside className="mx-auto w-full max-w-7xl sidebar-right float-right flex flex-row">
-            <h3 className="text-lg font-bold mb-2">Captured by Gote</h3>
-
-            { groupAndSortCaptured( capturedGote ).map( ( { piece, count } ) => (
-              <div key={ piece } className=" mb-1 w-fit max-w-7xl w-auto text-center group">
-                { pieceImages[ piece.toUpperCase() ] ? (
-                  <Image
-                    src={ pieceImages[ piece.toLowerCase() ] }
-                    alt={ piece }
-                    width={ 48 }
-                    height={ 48 }
-                    className="cursor-pointer object-scale-down object-center"
-                    onClick={ () => {
-                      setSelectedPiece( { piece, isCaptured: true } );
-                      setPossibleMoves( getDropLocations( piece, board ) );
-                    } } />
-                ) : null }
-                <span className="text-xs text-center block font-semibold">×{ count }</span>
-                <div className="absolute  ml-2 z-50 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-90 transition-all duration-200 whitespace-nowrap">
-                  { pieceNames[ piece.toLowerCase() ] || piece }
-                </div>
-              </div>
-            ) ) }
-
-          </aside>
-
-          { gameOver && checkmateInfo && showModal && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-
-
-              <div className="bg-white rounded-lg shadow-xl max-w-sm w-full p-5 text-center">
-                <h2 className="text-xl font-bold text-red-600 mb-3">Checkmate!</h2>
-                <p className="mb-2">
-                  <strong>{ checkmateInfo.player }</strong> has been checkmated.
-                </p>
-                <p className="text-sm text-gray-700 mb-1">
-                  <strong>King Position:</strong> ({ checkmateInfo.kingPos?.[ 0 ] }, { checkmateInfo.kingPos?.[ 1 ] })
-                </p>
-                { checkmateInfo.lastMove && (
-                  <p className="text-sm text-gray-700 mb-1">
-                    <strong>Last Move:</strong>{ " " }
-                    { checkmateInfo.lastMove.from
-                      ? `(${ checkmateInfo.lastMove.from[ 0 ] },${ checkmateInfo.lastMove.from[ 1 ] }) → (${ checkmateInfo.lastMove.to[ 0 ] },${ checkmateInfo.lastMove.to[ 1 ] })`
-                      : `Drop at (${ checkmateInfo.lastMove.to[ 0 ] },${ checkmateInfo.lastMove.to[ 1 ] })` }
-                  </p>
-                ) }
-                <p className="text-xs text-gray-600 mt-3">No legal moves remain to escape check.</p>
-                <button onClick={ resetGame } className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-semibold mr-2">
-                  Reset Game
-                </button>
-
-                { !replayMode && moveHistory.length > 0 && (
-                  <button
-                    onClick={ () => {
-                      setShowModal( false );
-                      setReplayMode( true );
-                      setReplayIndex( 0 );
-                      const first = moveHistory[ 0 ];
-                      setBoard( first.boardBefore.map( r => [ ...r ] ) );
-                      setCapturedGote( [ ...first.capturedGoteBefore ] );
-                      setCapturedSente( [ ...first.capturedSenteBefore ] );
-                      setCurrentPlayer( first.playerBefore );
-                      setLastMove( first.lastMoveBefore );
-                    } }
-                    className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-semibold"
+                    onClick={ () => handleSquareClick( x, y ) }
                   >
-                    Review Game
-                  </button>
+                    { piece !== ' ' && pieceImages[ piece ] && (
+                      <div className="row relative group">
+                        <Image
+                          className={ `object-scale-down ${ piece === piece.toLowerCase() ? 'rotate-180' : '' }` }
+                          src={ pieceImages[ piece ] }
+                          alt={ piece }
+                          width={ 48 }
+                          height={ 48 }
+                        />
+                        <div className="absolute z-50 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-90 transition-all duration-200 -top-8 left-1/2 -translate-x-1/2 pointer-events-none whitespace-nowrap">
+                          { pieceNames[ piece.replace( '+', '' ).toLowerCase() ] || piece }
+                        </div>
+                      </div>
+                    ) }
+                  </div>
+                ) )
                 ) }
-                <button
-                  onClick={ () => setShowModal( false ) }
-                  className="mt-4 bg-red-400 hover:bg-gray-500 text-white ml-2 px-4 py-2 rounded text-sm font-semibold"
-                >
-                  Close
-                </button>
               </div>
+            </main>
+            <nav className="hidden sm:block order-first sm:w-[20vw] bg-purple-200 p-2 mx-auto">
+              <h3 className="text-lg font-bold mb-2">Captured by Sente</h3>
+              { groupAndSortCaptured( capturedSente ).map( ( { piece, count } ) => (
+                <div key={ piece } className="mb-1 max-w-full w-fit text-center group">
+                  { pieceImages[ piece.toUpperCase() ] ? (
+                    <Image
+                      src={ pieceImages[ piece.toUpperCase() ] }
+                      alt={ piece }
+                      width={ 48 }
+                      height={ 48 }
+                      className="cursor-pointer object-scale-down object-center"
+                      onClick={ () => {
+                        setSelectedPiece( { piece, isCaptured: true } );
+                        setPossibleMoves( getDropLocations( piece, board ) );
+                      } }
+                    />
+                  ) : null
+                  }
+                  <span className="text-xs text-center block font-semibold">×{ count }</span>
+                  <div className=" mr-2 z-50 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-90 transition-all duration-200 whitespace-nowrap">
+                    { pieceNames[ piece.toLowerCase() ] || piece }
+                  </div>
+                </div>
+              ) ) }
+            </nav>
+            <aside className="hidden sm:block sm:w-[20vw] bg-yellow-100 p-2 mx-auto">
+              <h3 className="text-lg font-bold mb-2">Captured by Gote</h3>
+              { groupAndSortCaptured( capturedGote ).map( ( { piece, count } ) => (
+                <div key={ piece } className=" mb-1 text-center group">
+                  { pieceImages[ piece.toUpperCase() ] ? (
+                    <Image
+                      src={ pieceImages[ piece.toLowerCase() ] }
+                      alt={ piece }
+                      width={ 48 }
+                      height={ 48 }
+                      className="cursor-pointer object-scale-down object-center"
+                      onClick={ () => {
+                        setSelectedPiece( { piece, isCaptured: true } );
+                        setPossibleMoves( getDropLocations( piece, board ) );
+                      } } />
+                  ) : null }
+                  <span className="text-xs text-left ml-4 block font-semibold">×{ count }</span>
+                  <div className="absolute  ml-2 z-50 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-90 transition-all duration-200 whitespace-nowrap">
+                    { pieceNames[ piece.toLowerCase() ] || piece }
+                  </div>
+                </div>
+              ) ) }
+            </aside>
+            { gameOver && checkmateInfo && showModal && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
 
-            </div>
-          ) }
 
+                <div className="bg-white rounded-lg shadow-xl max-w-sm w-full p-5 text-center">
+                  <h2 className="text-xl font-bold text-red-600 mb-3">Checkmate!</h2>
+                  <p className="mb-2">
+                    <strong>{ checkmateInfo.player }</strong> has been checkmated.
+                  </p>
+                  <p className="text-sm text-gray-700 mb-1">
+                    <strong>King Position:</strong> ({ checkmateInfo.kingPos?.[ 0 ] }, { checkmateInfo.kingPos?.[ 1 ] })
+                  </p>
+                  { checkmateInfo.lastMove && (
+                    <p className="text-sm text-gray-700 mb-1">
+                      <strong>Last Move:</strong>{ " " }
+                      { checkmateInfo.lastMove.from
+                        ? `(${ checkmateInfo.lastMove.from[ 0 ] },${ checkmateInfo.lastMove.from[ 1 ] }) → (${ checkmateInfo.lastMove.to[ 0 ] },${ checkmateInfo.lastMove.to[ 1 ] })`
+                        : `Drop at (${ checkmateInfo.lastMove.to[ 0 ] },${ checkmateInfo.lastMove.to[ 1 ] })` }
+                    </p>
+                  ) }
+                  <p className="text-xs text-gray-600 mt-3">No legal moves remain to escape check.</p>
+                  <button onClick={ resetGame } className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-semibold mr-2">
+                    Reset Game
+                  </button>
 
-          {/* Footer */ }
-          <footer className="w-full px-4 py-2 mt-20">
+                  { !replayMode && moveHistory.length > 0 && (
+                    <button
+                      onClick={ () => {
+                        setShowModal( false );
+                        setReplayMode( true );
+                        setReplayIndex( 0 );
+                        const first = moveHistory[ 0 ];
+                        setBoard( first.boardBefore.map( r => [ ...r ] ) );
+                        setCapturedGote( [ ...first.capturedGoteBefore ] );
+                        setCapturedSente( [ ...first.capturedSenteBefore ] );
+                        setCurrentPlayer( first.playerBefore );
+                        setLastMove( first.lastMoveBefore );
+                      } }
+                      className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-semibold"
+                    >
+                      Review Game
+                    </button>
+                  ) }
+                  <button
+                    onClick={ () => setShowModal( false ) }
+                    className="mt-4 bg-red-400 hover:bg-gray-500 text-white ml-2 px-4 py-2 rounded text-sm font-semibold"
+                  >
+                    Close
+                  </button>
+                </div>
+
+              </div>
+            ) }
+          </div>
+          <footer className="bg-gray-100 p-2 h-[20vh] sm:h-auto">
             { replayMode && (
               <div className="mt-4 space-y-4">
                 <div className="gap-5">
@@ -1538,7 +1704,7 @@ const ShogiBoard = () => {
                 </div>
               </div>
             ) }
-            <div className="mt-4 flex mx-auto w-full max-w-7xl justify-evenly space-x-4">
+            <div className="mt-5 mx-auto mb-4 text-center block space-x-4">
               <button type="button" className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded" onClick={ handleUndo }>
                 Undo
               </button>
@@ -1548,8 +1714,8 @@ const ShogiBoard = () => {
               <button type="reset" className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded" onClick={ resetGame }>
                 Reset
               </button>
-            </div>
-            <div className="mt-5 mx-auto mb-4 text-center block">
+
+
               <button
                 type="button"
                 onClick={ () => setVsAI( prev => !prev ) }
@@ -1558,13 +1724,14 @@ const ShogiBoard = () => {
                 { vsAI ? 'Switch to Player vs Player' : 'Switch to Play vs AI' }
               </button>
             </div>
+
           </footer>
         </div>
       </>
 
       <>
         {/* Mobile Layout */ }
-        <div className="sm:hidden w-full h-auto relative">
+        <div className="sm:hidden w-full h-full relative">
           {/* Mobile Header */ }
           <div className="text-center font-bold text-lg py-2 border-b">{/* Game Info */ }
             <div className="text-xl text-center py-2">
@@ -1580,7 +1747,7 @@ const ShogiBoard = () => {
           </div>
 
           {/* Mobile Board */ }
-          <div className="board w-full h-auto">
+          <div className="shogi-board w-full h-full">
             { board.map( ( row, x ) => row.map( ( piece, y ) => {
               const isHighlighted = possibleMoves.some( ( [ px, py ] ) => px === x && py === y );
               const isLastMoveTo = lastMove?.to?.[ 0 ] === x && lastMove?.to?.[ 1 ] === y;
@@ -1596,7 +1763,7 @@ const ShogiBoard = () => {
                   key={ `${ x }-${ y }` }
                   onClick={ () => handleSquareClick( x, y ) }
                   className={ `
-    relative aspect-square h-auto w-full text-white border border-black flex items-center justify-center
+    relative aspect-square h-full w-full text-white border border-black flex items-center justify-center
     ${ isHighlighted ? 'bg-yellow-300/90' : '' }
     ${ isHighlighted ? 'bg-yellow-300/90' : '' || isLastMoveTo ? 'bg-red-400/80 border-2 border-red-400/80 animate-pulse' : '' || isLastMoveFrom ? 'animate-pulse border-2 border-red-400/80' : '' }
   `}
@@ -1607,8 +1774,8 @@ const ShogiBoard = () => {
                       <Image
                         src={ pieceImages[ piece ] }
                         alt={ piece }
-                        width={ 48 }
-                        height={ 48 }
+                        width={ 32 }
+                        height={ 32 }
                         className={ `object-scale-down ${ piece === piece.toLowerCase() ? 'rotate-180' : '' }` } />
 
                       {/* Top label (for long names only) */ }
@@ -1619,7 +1786,7 @@ const ShogiBoard = () => {
                       ) }
 
                       {/* Bottom label (always shown) */ }
-                      <div className="overflow-hidden text-pretty absolute -top-[2%] font-black w-full text-xs text-center text-gray-800 pointer-events-none px-0.5 leading-none">
+                      <div className="overflow-hidden text-pretty absolute -top-[25%] font-black w-full text-[12px] text-center text-neutral-800 pointer-events-none px-0.5 leading-none">
                         { bottomLabel && pieceNames[ piece.replace( '+', '' ).toLowerCase() ].split( ' ' ).slice( -1 ).join( ' ' ) }
                       </div>
                     </>
@@ -1835,7 +2002,7 @@ const ShogiBoard = () => {
                               height={ 48 } />
                           ) : null }
                           <span className="text-xs text-center block font-semibold">×{ count }</span>
-                          <div className="absolute top-full top-1/2 -translate-y-1/2 ml-2 z-50 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-90 transition-all duration-200 whitespace-nowrap">
+                          <div className="absolute ml-2 z-50 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-90 transition-all duration-200 whitespace-nowrap">
                             { pieceNames[ piece.toLowerCase() ] || piece }
                           </div>
                         </div>
@@ -1869,7 +2036,7 @@ const ShogiBoard = () => {
                               height={ 48 } />
                           ) : null }
                           <span className="text-xs text-center block font-semibold">×{ count }</span>
-                          <div className="absolute top-full top-1/2 -translate-y-1/2 ml-2 z-50 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-90 transition-all duration-200 whitespace-nowrap">
+                          <div className="absolute ml-2 z-50 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-90 transition-all duration-200 whitespace-nowrap">
                             { pieceNames[ piece.toLowerCase() ] || piece }
                           </div>
                         </div>
