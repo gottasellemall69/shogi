@@ -956,7 +956,7 @@ const ShogiBoard = () => {
     let nodesEvaluated = 0;
     const MAX_NODES = 100000;
     const startTime = Date.now();
-    const MAX_TIME = 8000; // 8 second timeout
+    const MAX_TIME = 1000; // 8 second timeout
 
     const isTimeUp = () => {
       return Date.now() - startTime > MAX_TIME || nodesEvaluated > MAX_NODES;
@@ -1277,9 +1277,14 @@ const ShogiBoard = () => {
 
   useEffect( () => {
     if ( vsAI && currentPlayer === 'sente' ) {
-      performAIMove();
+      if ( 'requestIdleCallback' in window ) {
+        requestIdleCallback( () => performAIMove() );
+      } else {
+        setTimeout( () => performAIMove(), 50 );
+      }
     }
   }, [ currentPlayer, vsAI, performAIMove ] );
+
 
   // Undo the last move
   const handleUndo = () => {
@@ -1472,7 +1477,7 @@ const ShogiBoard = () => {
   return (
     <>
       <>
-        <div className="min-h-screen flex flex-col mx-auto hidden sm:block">
+        <div className="flex flex-col mx-auto hidden sm:block">
           <header className="bg-red-50 p-2 h-[20vh] flex flex-wrap sm:h-auto mx-auto w-full">
             <span className="text-2xl font-bold w-full mx-auto my-2 text-center">
               Current Player: { currentPlayer }
@@ -1488,7 +1493,7 @@ const ShogiBoard = () => {
           </header>
           <div className="flex-1 flex flex-col sm:flex-row">
             <main className="flex-1 bg-indigo-100 p-2 mx-auto w-full">
-              <div className="board min-h-full mx-auto w-fit max-w-full">
+              <div className="board max-h-fit mx-auto w-fit max-w-full">
                 { board.map( ( row, x ) => row.map( ( piece, y ) => (
                   <div
                     key={ `${ x }-${ y }` }
