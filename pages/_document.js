@@ -4,8 +4,8 @@ export default async function Document() {
   return (
     <Html lang="en">
       <Head />
-      <body className="antialiased mx-auto max-w-full h-full">
-        <div className='mx-auto'>
+      <body className=" antialiased mx-auto max-w-full h-full">
+        <div className='container mx-auto'>
           <Main />
         </div>
         <NextScript />

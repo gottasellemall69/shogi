@@ -954,9 +954,9 @@ const ShogiBoard = () => {
 
     // Performance monitoring
     let nodesEvaluated = 0;
-    const MAX_NODES = 100000;
+    const MAX_NODES = 200000;
     const startTime = Date.now();
-    const MAX_TIME = 1000; // 8 second timeout
+    const MAX_TIME = 1000; // 1 second timeout
 
     const isTimeUp = () => {
       return Date.now() - startTime > MAX_TIME || nodesEvaluated > MAX_NODES;
@@ -1477,8 +1477,8 @@ const ShogiBoard = () => {
   return (
     <>
       <>
-        <div className="flex flex-col mx-auto hidden sm:block">
-          <header className="bg-red-50 p-2 h-[20vh] flex flex-wrap sm:h-auto mx-auto w-full">
+        <div className="flex flex-col mx-auto hidden md:block">
+          <header className="bg-red-50 p-2 h-[20vh] flex flex-wrap md:h-auto mx-auto w-full">
             <span className="text-2xl font-bold w-full mx-auto my-2 text-center">
               Current Player: { currentPlayer }
               { isInCheck( currentPlayer ) && ` (in check)` }
@@ -1491,7 +1491,7 @@ const ShogiBoard = () => {
               </span>
             ) }
           </header>
-          <div className="flex-1 flex flex-col sm:flex-row">
+          <div className="flex-1 flex flex-col md:flex-row">
             <main className="flex-1 bg-indigo-100 p-2 mx-auto w-full">
               <div className="board max-h-fit mx-auto w-fit max-w-full">
                 { board.map( ( row, x ) => row.map( ( piece, y ) => (
@@ -1523,7 +1523,7 @@ const ShogiBoard = () => {
                 ) }
               </div>
             </main>
-            <nav className="hidden sm:block order-first sm:w-[20vw] bg-purple-200 p-2 mx-auto">
+            <nav className="hidden md:block order-first md:w-[20vw] bg-purple-200 p-2 mx-auto">
               <h3 className="text-lg font-bold mb-2">Captured by Sente</h3>
               { groupAndSortCaptured( capturedSente ).map( ( { piece, count } ) => (
                 <div key={ piece } className="mb-1 max-w-full w-fit text-center group">
@@ -1548,7 +1548,7 @@ const ShogiBoard = () => {
                 </div>
               ) ) }
             </nav>
-            <aside className="hidden sm:block sm:w-[20vw] bg-yellow-100 p-2 mx-auto">
+            <aside className="hidden md:block md:w-[20vw] bg-yellow-100 p-2 mx-auto">
               <h3 className="text-lg font-bold mb-2">Captured by Gote</h3>
               { groupAndSortCaptured( capturedGote ).map( ( { piece, count } ) => (
                 <div key={ piece } className=" mb-1 text-center group">
@@ -1625,7 +1625,7 @@ const ShogiBoard = () => {
               </div>
             ) }
           </div>
-          <footer className="bg-gray-100 p-2 h-[20vh] sm:h-auto">
+          <footer className="bg-gray-100 p-2 h-[20vh] md:h-auto">
             { replayMode && (
               <div className="mt-4 space-y-4">
                 <div className="gap-5">
@@ -1736,7 +1736,7 @@ const ShogiBoard = () => {
 
       <>
         {/* Mobile Layout */ }
-        <div className="sm:hidden w-full h-full relative">
+        <div className="md:hidden w-full h-full relative">
           {/* Mobile Header */ }
           <div className="text-center font-bold text-lg py-2 border-b">{/* Game Info */ }
             <div className="text-xl text-center py-2">
