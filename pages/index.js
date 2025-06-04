@@ -107,8 +107,10 @@ const initialBoard = [
 ];
 
 const pieceValue = {
-  p: 5, l: 10, n: 10, s: 30, g: 50, b: 30, r: 50, k: 1000,
-  'p+': 10, 'l+': 30, 'n+': 30, 's+': 50, 'b+': 90, 'r+': 90
+  p: 1000, l: 1500, n: 1500, s: 2500, g: 5500, b: 3500, r: 4500, k: 10000,
+  P: 1000, L: 1500, N: 1500, S: 2500, G: 5500, B: 3500, R: 4500, K: 10000,
+  '+p': 4500, '+l': 5500, '+n': 5500, '+s': 6500, '+b': 7500, '+r': 9000,
+  '+P': 4500, '+L': 5500, '+N': 5500, '+S': 6500, '+B': 7500, '+R': 9000
 };
 
 
@@ -930,6 +932,18 @@ const ShogiBoard = () => {
 
   const performAIMove = useCallback( async () => {
     if ( currentPlayer !== 'sente' || gameOver ) return;
+    const pieceValues = {
+      p: 1000, l: 1500, n: 1500, s: 2500, g: 5500, b: 3500, r: 4500, k: 10000,
+      P: 1000, L: 1500, N: 1500, S: 2500, G: 5500, B: 3500, R: 4500, K: 10000,
+      '+p': 4500, '+l': 5500, '+n': 5500, '+s': 6500, '+b': 7500, '+r': 9000,
+      '+P': 4500, '+L': 5500, '+N': 5500, '+S': 6500, '+B': 7500, '+R': 9000
+    };
+
+    // Performance monitoring
+    let nodesEvaluated = 0;
+    const MAX_NODES = 200000;
+    const startTime = Date.now();
+    const MAX_TIME = 1000; // 1 second timeout
 
     // 1) Opening-book check
     const bookMatch = matchedOpening
@@ -952,12 +966,6 @@ const ShogiBoard = () => {
       return nb;
     };
 
-    // Performance monitoring
-    let nodesEvaluated = 0;
-    const MAX_NODES = 200000;
-    const startTime = Date.now();
-    const MAX_TIME = 1000; // 1 second timeout
-
     const isTimeUp = () => {
       return Date.now() - startTime > MAX_TIME || nodesEvaluated > MAX_NODES;
     };
@@ -968,14 +976,11 @@ const ShogiBoard = () => {
 
       let score = 0;
 
-      const pieceValues = {
-        'p': 100, 'l': 300, 'n': 350, 's': 400, 'g': 500, 'b': 750, 'r': 900, 'k': 10000,
-        'P': 100, 'L': 300, 'N': 350, 'S': 400, 'G': 500, 'B': 750, 'R': 900, 'K': 10000,
-        '+p': 550, '+l': 550, '+n': 550, '+s': 550, '+b': 950, '+r': 1100,
-        '+P': 550, '+L': 550, '+N': 550, '+S': 550, '+B': 950, '+R': 1100
-      };
-
-      const centerSquares = [ [ 3, 3 ], [ 3, 4 ], [ 3, 5 ], [ 4, 3 ], [ 4, 4 ], [ 4, 5 ], [ 5, 3 ], [ 5, 4 ], [ 5, 5 ] ];
+      const centerSquares = [
+        [ 3, 3 ], [ 3, 4 ], [ 3, 5 ],
+        [ 4, 3 ], [ 4, 4 ], [ 4, 5 ],
+        [ 5, 3 ], [ 5, 4 ], [ 5, 5 ]
+      ];
 
       for ( let x = 0; x < 9; x++ ) {
         for ( let y = 0; y < 9; y++ ) {
@@ -984,39 +989,41 @@ const ShogiBoard = () => {
 
           const isUpperCase = piece === piece.toUpperCase();
           const piecePlayer = isUpperCase ? 'gote' : 'sente';
-          const baseValue = pieceValues[ piece ] || 0;
-          let pieceScore = baseValue;
+          const basePiece = piece.replace( '+', '' );
+          let pieceScore = pieceValues[ piece ] || 0;
 
-          // Positional bonuses
+          // Central control bonus
           if ( centerSquares.some( ( [ cx, cy ] ) => cx === x && cy === y ) ) {
-            pieceScore += 50;
+            pieceScore += [ 'p', 'P' ].includes( basePiece ) ? 10 : 25;
+          }
+
+          // Promotion zone bonus, scaled
+          const inPromotionZone = piecePlayer === 'sente' ? x <= 2 : x >= 6;
+          if ( inPromotionZone && !piece.includes( '+' ) ) {
+            const mobilityFactor = [ 'p', 'l', 'n' ].includes( basePiece.toLowerCase() ) ? 2 : 1;
+            pieceScore += 100 * mobilityFactor;
           }
 
           // King safety
-          if ( piece.toLowerCase() === 'k' ) {
+          if ( basePiece.toLowerCase() === 'k' ) {
             let defenders = 0;
-            for ( let dx = -1; dx <= 1; dx++ ) {
-              for ( let dy = -1; dy <= 1; dy++ ) {
+            for ( let dx = -2; dx <= 2; dx++ ) {
+              for ( let dy = -2; dy <= 2; dy++ ) {
                 const nx = x + dx, ny = y + dy;
                 if ( nx >= 0 && nx < 9 && ny >= 0 && ny < 9 ) {
                   const neighbor = board[ nx ][ ny ];
                   if ( neighbor && neighbor !== ' ' ) {
                     const neighborPlayer = neighbor === neighbor.toUpperCase() ? 'gote' : 'sente';
-                    if ( neighborPlayer === piecePlayer ) defenders++;
+                    if ( neighborPlayer === piecePlayer ) defenders += 10;
+                    else defenders -= 20;
                   }
                 }
               }
             }
-            pieceScore += defenders * 100;
+            pieceScore += defenders;
           }
 
-          // Promotion zone bonus
-          if ( piecePlayer === 'sente' && x <= 2 && !piece.includes( '+' ) ) {
-            pieceScore += 100;
-          } else if ( piecePlayer === 'gote' && x >= 6 && !piece.includes( '+' ) ) {
-            pieceScore += 100;
-          }
-
+          // Add/subtract piece score
           if ( piecePlayer === forPlayer ) {
             score += pieceScore;
           } else {
@@ -1025,13 +1032,16 @@ const ShogiBoard = () => {
         }
       }
 
-      // Check evaluation with error handling
+      // Check bonus/penalty
       try {
         if ( isInCheck( forPlayer, board ) ) score -= 500;
         if ( isInCheck( forPlayer === 'sente' ? 'gote' : 'sente', board ) ) score += 300;
       } catch ( e ) {
-        // Ignore check detection errors in evaluation
+        // fail silently on check evaluation
       }
+
+      // Material difference emphasis
+      score += score * 0.05;
 
       return score;
     };
@@ -1243,11 +1253,40 @@ const ShogiBoard = () => {
       // Score moves simply and pick best
       for ( const move of allMoves ) {
         let score = 0;
-        if ( move.capturedPiece ) score += 100;
-        if ( move.piece && move.piece.includes( '+' ) ) score += 50;
-        score += Math.random() * 10;
+
+        // Reward based on value of captured piece
+        if ( move.capturedPiece ) {
+          const base = move.capturedPiece.replace( '+', '' ).toLowerCase();
+          const value = pieceValues[ base ] || 0;
+          score += value * 1.1; // Slight bonus for aggression
+        }
+
+        // Bonus for promotion
+        if ( move.piece && move.piece.includes( '+' ) ) {
+          score += 500;
+        }
+
+        // Bonus for checking the opponent
+        try {
+          if ( isInCheck( 'gote', move.board ) ) {
+            score += 300;
+            move.putsOpponentInCheck = true;
+          }
+        } catch ( e ) { }
+
+        // Encourage attacking near enemy king
+        if ( move.to ) {
+          const [ tx, ty ] = move.to;
+          if ( Math.abs( ty - 4 ) <= 1 && tx <= 2 ) {
+            score += 50;
+          }
+        }
+
+        score += Math.random() * 10; // Random tiebreaker
         move.score = score;
       }
+
+
 
       allMoves.sort( ( a, b ) => b.score - a.score );
       result = { move: allMoves[ 0 ], score: allMoves[ 0 ].score };
