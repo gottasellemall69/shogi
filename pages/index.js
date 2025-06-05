@@ -107,9 +107,9 @@ const initialBoard = [
 ];
 
 const pieceValue = {
-  p: 1000, l: 1500, n: 1500, s: 2500, g: 5500, b: 3500, r: 4500, k: 10000,
-  P: 1000, L: 1500, N: 1500, S: 2500, G: 5500, B: 3500, R: 4500, K: 10000,
-  '+p': 4500, '+l': 5500, '+n': 5500, '+s': 6500, '+b': 7500, '+r': 9000,
+  p: 500, l: 1000, n: 1000, s: 3000, g: 5000, b: 3000, r: 5000, k: 100000,
+  P: 500, L: 1000, N: 1000, S: 3000, G: 5000, B: 3000, R: 5000, K: 100000,
+  'p+': 1000, 'l+': 3000, 'n+': 3000, 's+': 5000, 'b+': 9000, 'r+': 9000,
   '+P': 4500, '+L': 5500, '+N': 5500, '+S': 6500, '+B': 7500, '+R': 9000
 };
 
@@ -122,6 +122,23 @@ const goldMovement = [
   { x: 1, y: 1 },
   { x: -1, y: 1 }
 ];
+
+const scoreMove = ( { piece, captured, promotes, putsOpponentInCheck, to } ) => {
+  const val = pieceValue[ piece.replace( '+', '' ).toLowerCase() ] || 0;
+  const capturedVal = captured ? ( pieceValue[ captured.replace( '+', '' ).toLowerCase() ] || 0 ) : 0;
+
+  const [ x, y ] = to || [ 0, 0 ];
+  const centerBonus = ( 4 - Math.abs( 4 - x ) ) + ( 4 - Math.abs( 4 - y ) ); // closer to center = better
+
+  let score = 0;
+  score += capturedVal * 1.2;
+  score += promotes ? 2.5 : 0;
+  score += putsOpponentInCheck ? 2 : 0;
+  score += centerBonus * 0.2;
+  score -= val * 0.4;
+
+  return score;
+};
 
 
 
@@ -149,11 +166,6 @@ const ShogiBoard = () => {
   const [ replayPlaying, setReplayPlaying ] = useState( false );
   const [ replaySpeed, setReplaySpeed ] = useState( 1000 ); // 1 second per move
   const [ showModal, setShowModal ] = useState( true );
-
-
-
-
-
 
   const BOARD_SIZE = 9;
 
@@ -881,23 +893,6 @@ const ShogiBoard = () => {
 
 
 
-  const scoreMove = ( { piece, captured, promotes, putsOpponentInCheck, to } ) => {
-    const val = pieceValue[ piece.replace( '+', '' ).toLowerCase() ] || 0;
-    const capturedVal = captured ? ( pieceValue[ captured.replace( '+', '' ).toLowerCase() ] || 0 ) : 0;
-
-    const [ x, y ] = to || [ 0, 0 ];
-    const centerBonus = ( 4 - Math.abs( 4 - x ) ) + ( 4 - Math.abs( 4 - y ) ); // closer to center = better
-
-    let score = 0;
-    score += capturedVal * 1.2;
-    score += promotes ? 2.5 : 0;
-    score += putsOpponentInCheck ? 2 : 0;
-    score += centerBonus * 0.2;
-    score -= val * 0.4;
-
-    return score;
-  };
-
 
   const matchOpeningBook = () => {
     for ( const book of openingBook ) {
@@ -931,19 +926,20 @@ const ShogiBoard = () => {
 
 
   const performAIMove = useCallback( async () => {
-    if ( currentPlayer !== 'sente' || gameOver ) return;
     const pieceValues = {
-      p: 1000, l: 1500, n: 1500, s: 2500, g: 5500, b: 3500, r: 4500, k: 10000,
-      P: 1000, L: 1500, N: 1500, S: 2500, G: 5500, B: 3500, R: 4500, K: 10000,
+      p: 500, l: 1000, n: 1000, s: 3000, g: 5000, b: 3000, r: 5000, k: 100000,
+      P: 500, L: 1000, N: 1000, S: 3000, G: 5000, B: 3000, R: 5000, K: 100000,
       '+p': 4500, '+l': 5500, '+n': 5500, '+s': 6500, '+b': 7500, '+r': 9000,
       '+P': 4500, '+L': 5500, '+N': 5500, '+S': 6500, '+B': 7500, '+R': 9000
     };
 
+    if ( currentPlayer !== 'sente' || gameOver ) return;
+
     // Performance monitoring
     let nodesEvaluated = 0;
-    const MAX_NODES = 200000;
+    const MAX_NODES = 1000000;
     const startTime = Date.now();
-    const MAX_TIME = 1000; // 1 second timeout
+    const MAX_TIME = 750; // 1 second timeout
 
     // 1) Opening-book check
     const bookMatch = matchedOpening
@@ -982,68 +978,68 @@ const ShogiBoard = () => {
         [ 5, 3 ], [ 5, 4 ], [ 5, 5 ]
       ];
 
-      for ( let x = 0; x < 9; x++ ) {
-        for ( let y = 0; y < 9; y++ ) {
-          const piece = board[ x ][ y ];
-          if ( !piece || piece === ' ' ) continue;
+      try {
+        for ( let x = 0; x < 9; x++ ) {
+          for ( let y = 0; y < 9; y++ ) {
+            const piece = board[ x ][ y ];
+            if ( !piece || piece === ' ' ) continue;
 
-          const isUpperCase = piece === piece.toUpperCase();
-          const piecePlayer = isUpperCase ? 'gote' : 'sente';
-          const basePiece = piece.replace( '+', '' );
-          let pieceScore = pieceValues[ piece ] || 0;
+            const isUpperCase = piece === piece.toUpperCase();
+            const piecePlayer = isUpperCase ? 'gote' : 'sente';
+            const baseValue = pieceValues[ piece ] || 0;
+            let pieceScore = baseValue;
 
-          // Central control bonus
-          if ( centerSquares.some( ( [ cx, cy ] ) => cx === x && cy === y ) ) {
-            pieceScore += [ 'p', 'P' ].includes( basePiece ) ? 10 : 25;
-          }
+            // Center bonus
+            if ( centerSquares.some( ( [ cx, cy ] ) => cx === x && cy === y ) ) {
+              pieceScore += 50;
+            }
 
-          // Promotion zone bonus, scaled
-          const inPromotionZone = piecePlayer === 'sente' ? x <= 2 : x >= 6;
-          if ( inPromotionZone && !piece.includes( '+' ) ) {
-            const mobilityFactor = [ 'p', 'l', 'n' ].includes( basePiece.toLowerCase() ) ? 2 : 1;
-            pieceScore += 100 * mobilityFactor;
-          }
-
-          // King safety
-          if ( basePiece.toLowerCase() === 'k' ) {
-            let defenders = 0;
-            for ( let dx = -2; dx <= 2; dx++ ) {
-              for ( let dy = -2; dy <= 2; dy++ ) {
-                const nx = x + dx, ny = y + dy;
-                if ( nx >= 0 && nx < 9 && ny >= 0 && ny < 9 ) {
-                  const neighbor = board[ nx ][ ny ];
-                  if ( neighbor && neighbor !== ' ' ) {
-                    const neighborPlayer = neighbor === neighbor.toUpperCase() ? 'gote' : 'sente';
-                    if ( neighborPlayer === piecePlayer ) defenders += 10;
-                    else defenders -= 20;
+            // King safety
+            if ( piece.toLowerCase() === 'k' ) {
+              let defenders = 0;
+              for ( let dx = -1; dx <= 1; dx++ ) {
+                for ( let dy = -1; dy <= 1; dy++ ) {
+                  const nx = x + dx, ny = y + dy;
+                  if ( nx >= 0 && nx < 9 && ny >= 0 && ny < 9 ) {
+                    const neighbor = board[ nx ][ ny ];
+                    if ( neighbor && neighbor !== ' ' ) {
+                      const neighborPlayer = neighbor === neighbor.toUpperCase() ? 'gote' : 'sente';
+                      if ( neighborPlayer === piecePlayer ) defenders++;
+                    }
                   }
                 }
               }
+              pieceScore += defenders * 100;
             }
-            pieceScore += defenders;
-          }
 
-          // Add/subtract piece score
-          if ( piecePlayer === forPlayer ) {
-            score += pieceScore;
-          } else {
-            score -= pieceScore;
+            // Promotion zone bonus
+            if ( piecePlayer === 'sente' && x <= 2 && !piece.includes( '+' ) ) {
+              pieceScore += 100;
+            } else if ( piecePlayer === 'gote' && x >= 6 && !piece.includes( '+' ) ) {
+              pieceScore += 100;
+            }
+
+            score += ( piecePlayer === forPlayer ? 1 : -1 ) * pieceScore;
           }
         }
-      }
 
-      // Check bonus/penalty
-      try {
-        if ( isInCheck( forPlayer, board ) ) score -= 500;
-        if ( isInCheck( forPlayer === 'sente' ? 'gote' : 'sente', board ) ) score += 300;
+        // Check states
+        if ( typeof isInCheck === 'function' ) {
+          if ( isInCheck( forPlayer, board ) ) score -= 500;
+          if ( isInCheck( forPlayer === 'sente' ? 'gote' : 'sente', board ) ) score += 300;
+        }
+
+        // Sanitize score
+        if ( typeof score !== 'number' || isNaN( score ) || !isFinite( score ) ) {
+          console.warn( '[EVAL] Invalid score calculated:', score );
+          return 0;
+        }
+
+        return score;
       } catch ( e ) {
-        // fail silently on check evaluation
+        console.error( '[EVAL ERROR]', e );
+        return 0;
       }
-
-      // Material difference emphasis
-      score += score * 0.05;
-
-      return score;
     };
 
     // Generate ALL legal moves without artificial limits
@@ -1064,12 +1060,14 @@ const ShogiBoard = () => {
             const legal = getPossibleMoves( piece, x, y, board );
             for ( const [ tx, ty ] of legal ) {
               const cap = board[ tx ][ ty ];
-              const canProm = shouldPromote && shouldPromote( piece, x, tx ) && !piece.includes( '+' );
+              const canProm = typeof shouldPromote === 'function' && shouldPromote( piece, x, tx ) && !piece.includes( '+' );
 
               // Non-promotion move
               const b1 = cloneBoard( board );
+              if ( !b1[ x ] || !b1[ tx ] ) continue;
               b1[ x ][ y ] = ' ';
               b1[ tx ][ ty ] = piece;
+
 
               try {
                 if ( !isInCheck( player, b1 ) ) {
@@ -1167,42 +1165,49 @@ const ShogiBoard = () => {
         }
       }
 
+      moves.sort( ( a, b ) => {
+        const aVal = a.capturedPiece ? ( pieceValues[ a.capturedPiece.replace( '+', '' ).toLowerCase() ] || 0 ) : 0;
+        const bVal = b.capturedPiece ? ( pieceValues[ b.capturedPiece.replace( '+', '' ).toLowerCase() ] || 0 ) : 0;
+        return bVal - aVal; // Captures first
+      } );
+
       return moves;
     };
 
     // Simple minimax with limited depth but unlimited move generation
     const minimax = ( board, depth, alpha, beta, maximizingPlayer ) => {
-      if ( isTimeUp() ) return maximizingPlayer ? -9999 : 9999;
-      if ( depth <= 0 ) return evaluatePosition( board, 'sente' );
-
       const currentPlayer = maximizingPlayer ? 'sente' : 'gote';
       const allMoves = generateAllMoves( board, currentPlayer );
 
+      console.log( `[MINIMAX] Depth ${ depth } | Player: ${ currentPlayer } | Generated Moves: ${ allMoves.length }` );
       if ( allMoves.length === 0 ) {
-        return maximizingPlayer ? -9999 : 9999;
+        console.warn( `[MINIMAX] No legal moves for ${ currentPlayer } at depth ${ depth }` );
       }
 
-      // Limit moves only for deep searches to prevent slowdown
-      const moves = depth >= 2 ? allMoves.slice( 0, Math.min( allMoves.length, 40 ) ) : allMoves;
-
-      // Move ordering - prioritize captures and promotions
-      moves.sort( ( a, b ) => {
-        let scoreA = 0, scoreB = 0;
-        if ( a.capturedPiece ) scoreA += 1000;
-        if ( b.capturedPiece ) scoreB += 1000;
-        if ( a.piece && a.piece.includes( '+' ) ) scoreA += 500;
-        if ( b.piece && b.piece.includes( '+' ) ) scoreB += 500;
-        return scoreB - scoreA;
-      } );
+      let bestMove = null;
 
       if ( maximizingPlayer ) {
         let maxEval = -Infinity;
-        let bestMove = null;
+        for ( const move of allMoves ) {
+          if ( !move.board ) {
+            console.warn( '[MINIMAX] Skipping move with no board:', move );
+            continue;
+          }
 
-        for ( const move of moves ) {
-          if ( isTimeUp() ) break;
+          let evaluation;
+          try {
+            evaluation = ( depth > 1 )
+              ? minimax( move.board, depth - 1, alpha, beta, false )
+              : evaluatePosition( move.board, 'sente' );
+          } catch ( e ) {
+            console.warn( '[MINIMAX] Evaluation error:', e );
+            continue;
+          }
 
-          const evaluation = minimax( move.board, depth - 1, alpha, beta, false );
+          if ( typeof evaluation !== 'number' || isNaN( evaluation ) ) {
+            console.warn( '[MINIMAX] Invalid score (maximizing):', evaluation, move );
+            continue;
+          }
 
           if ( evaluation > maxEval ) {
             maxEval = evaluation;
@@ -1213,17 +1218,53 @@ const ShogiBoard = () => {
           if ( beta <= alpha ) break;
         }
 
-        return depth === 2 ? { move: bestMove, score: maxEval } : maxEval;
+        if ( depth === 2 ) {
+          if ( !bestMove ) {
+            console.warn( '[MINIMAX] No best move found at depth 2' );
+            return null;
+          }
+          return { move: bestMove, score: maxEval };
+        }
+
+        return maxEval;
       } else {
         let minEval = Infinity;
+        for ( const move of allMoves ) {
+          if ( !move.board ) {
+            console.warn( '[MINIMAX] Skipping move with no board:', move );
+            continue;
+          }
 
-        for ( const move of moves ) {
-          if ( isTimeUp() ) break;
+          let evaluation;
+          try {
+            evaluation = ( depth > 1 )
+              ? minimax( move.board, depth - 1, alpha, beta, true )
+              : evaluatePosition( move.board, 'gote' );
+          } catch ( e ) {
+            console.warn( '[MINIMAX] Evaluation error:', e );
+            continue;
+          }
 
-          const evaluation = minimax( move.board, depth - 1, alpha, beta, true );
-          minEval = Math.min( minEval, evaluation );
+          if ( typeof evaluation !== 'number' || isNaN( evaluation ) ) {
+            console.warn( '[MINIMAX] Invalid score (minimizing):', evaluation, move );
+            continue;
+          }
+
+          if ( evaluation < minEval ) {
+            minEval = evaluation;
+            bestMove = move;
+          }
+
           beta = Math.min( beta, evaluation );
           if ( beta <= alpha ) break;
+        }
+
+        if ( depth === 2 ) {
+          if ( !bestMove ) {
+            console.warn( '[MINIMAX] No best move found at depth 2' );
+            return null;
+          }
+          return { move: bestMove, score: minEval };
         }
 
         return minEval;
@@ -1239,9 +1280,11 @@ const ShogiBoard = () => {
       result = null;
     }
 
+    console.warn( '[AI] Fallback triggered — minimax returned null or had no move' );
+
     // If minimax failed or no result, use all available moves
     if ( !result || !result.move ) {
-      console.log( 'Using fallback move selection' );
+      console.warn( `[AI] Fallback triggered — minimax returned invalid:`, result );
       const allMoves = generateAllMoves( board, 'sente' );
 
       if ( allMoves.length === 0 ) {
@@ -1254,37 +1297,72 @@ const ShogiBoard = () => {
       for ( const move of allMoves ) {
         let score = 0;
 
-        // Reward based on value of captured piece
+        const [ tx, ty ] = move.to || [ 4, 4 ];
+        const toPiece = move.board?.[ tx ]?.[ ty ];
+        const enemyPieces = [];
+
+        // 1. Strong bonus for captures
         if ( move.capturedPiece ) {
           const base = move.capturedPiece.replace( '+', '' ).toLowerCase();
           const value = pieceValues[ base ] || 0;
-          score += value * 1.1; // Slight bonus for aggression
+          score += value * 3.0; // High aggression factor
+          score += 2000;
         }
 
-        // Bonus for promotion
-        if ( move.piece && move.piece.includes( '+' ) ) {
-          score += 500;
-        }
-
-        // Bonus for checking the opponent
+        // 2. Bonus for checking the opponent
         try {
           if ( isInCheck( 'gote', move.board ) ) {
-            score += 300;
-            move.putsOpponentInCheck = true;
+            score += 2500;
           }
-        } catch ( e ) { }
+        } catch ( _ ) { }
 
-        // Encourage attacking near enemy king
-        if ( move.to ) {
-          const [ tx, ty ] = move.to;
-          if ( Math.abs( ty - 4 ) <= 1 && tx <= 2 ) {
-            score += 50;
+        // 3. Bonus for promoting
+        if ( move.piece && move.piece.includes( '+' ) ) {
+          score += 1200;
+        }
+
+        // 4. Positional aggression (closer to Gote king side)
+        score += ( 8 - tx ) * 200;
+
+        // 5. Central control
+        const centerBonus = ( 4 - Math.abs( 4 - tx ) ) + ( 4 - Math.abs( 4 - ty ) );
+        score += centerBonus * 15000;
+
+        // 6. NEW: Penalize enemy strong pieces still on board
+        for ( let i = 0; i < 9; i++ ) {
+          for ( let j = 0; j < 9; j++ ) {
+            const p = move.board[ i ][ j ];
+            if ( !p || p === ' ' ) continue;
+
+            const isEnemy = p === p.toUpperCase();
+            const base = p.replace( '+', '' ).toLowerCase();
+            const value = pieceValues[ base ] || 0;
+            if ( isEnemy && value > 1000 ) {
+              score -= value * 3.0; // soft penalty for not removing them
+            }
           }
         }
 
-        score += Math.random() * 10; // Random tiebreaker
+        // 7. NEW: Extra bonus if this move *attacks* enemy powerful piece
+        try {
+          const attacked = getPossibleMoves( move.piece, tx, ty, move.board );
+          for ( const [ ex, ey ] of attacked ) {
+            const target = move.board?.[ ex ]?.[ ey ];
+            if ( target && target !== ' ' ) {
+              const base = target.replace( '+', '' ).toLowerCase();
+              const val = pieceValues[ base ] || 0;
+              if ( target === target.toUpperCase() && val > 3000 ) {
+                score += val * 1.2; // actively targeting strong piece
+              }
+            }
+          }
+        } catch ( _ ) { }
+
+        score += Math.random() * 50;
         move.score = score;
       }
+
+
 
 
 
@@ -1292,7 +1370,7 @@ const ShogiBoard = () => {
       result = { move: allMoves[ 0 ], score: allMoves[ 0 ].score };
     }
 
-    console.log( `AI evaluated ${ nodesEvaluated } nodes in ${ Date.now() - startTime }ms` );
+    console.log( `[AI] Evaluated ${ nodesEvaluated } nodes in ${ Date.now() - startTime }ms` );
 
     const choice = result.move;
 
@@ -1307,11 +1385,11 @@ const ShogiBoard = () => {
     }, 300 );
 
   }, [
-    board, currentPlayer, gameOver,
+    board, piece, currentPlayer, gameOver,
     getPossibleMoves, capturedSente,
     shouldPromote, isInCheck,
     movePiece, handleDropCapturedPiece,
-    matchedOpening, openingStep, setLastMove
+    matchedOpening, openingStep, setLastMove, scoreMove,
   ] );
 
   useEffect( () => {
@@ -1664,10 +1742,10 @@ const ShogiBoard = () => {
               </div>
             ) }
           </div>
-          <footer className="bg-gray-100 p-2 h-[20vh] md:h-auto">
+          <footer className="bg-gray-100 p-2 h-[20vh] md:h-auto mx-auto">
             { replayMode && (
-              <div className="mt-4 space-y-4">
-                <div className="gap-5">
+              <div className="mt-4 space-y-4 mx-auto">
+                <div className="gap-5 mx-auto">
                   <button onClick={ downloadReplayAsJSON } className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-1 px-3 rounded text-sm">
                     Export JSON
                   </button>
@@ -1675,7 +1753,7 @@ const ShogiBoard = () => {
                     Export CSV
                   </button>
                 </div>
-                <div className="gap-5">
+                <div className="gap-5 mx-auto">
                   <button onClick={ () => setReplayPlaying( true ) } className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded">
                     ▶ Play
                   </button>
@@ -1775,10 +1853,11 @@ const ShogiBoard = () => {
 
       <>
         {/* Mobile Layout */ }
-        <div className="md:hidden w-full h-full relative">
+        <div className="md:hidden w-full h-fit relative">
           {/* Mobile Header */ }
-          <div className="text-center font-bold text-lg py-2 border-b">{/* Game Info */ }
-            <div className="text-xl text-center py-2">
+          <div className="text-center font-bold text-lg py-2 border-b">
+            {/* Game Info */ }
+            <div className="text-xl text-center">
               Current Player: <strong>{ currentPlayer }</strong>
               { isInCheck( currentPlayer ) && <span className="text-red-600"> (in check)</span> }
               { lastMove && (
@@ -1791,7 +1870,7 @@ const ShogiBoard = () => {
           </div>
 
           {/* Mobile Board */ }
-          <div className="shogi-board w-full h-full">
+          <div className="shogi-board w-full h-full my-4">
             { board.map( ( row, x ) => row.map( ( piece, y ) => {
               const isHighlighted = possibleMoves.some( ( [ px, py ] ) => px === x && py === y );
               const isLastMoveTo = lastMove?.to?.[ 0 ] === x && lastMove?.to?.[ 1 ] === y;
@@ -1824,13 +1903,13 @@ const ShogiBoard = () => {
 
                       {/* Top label (for long names only) */ }
                       { topLabel && pieceNames[ piece.replace( '+', '' ).toLowerCase() ]?.includes( ' ' ) && (
-                        <div className="overflow-hidden text-pretty absolute -bottom-[2.5px] font-black w-full text-[12px] text-center text-neutral-800 pointer-events-none px-0.5 leading-none">
+                        <div className="overflow-hidden text-pretty absolute z-50 -bottom-[2.5px] font-semibold max-w-fit text-[16px] bg-white bg-blur-2xl bg-opacity-40 backdrop-shadow-lg text-center text-neutral-800 pointer-events-none px-0.5 leading-none">
                           { pieceNames[ piece.replace( '+', '' ).toLowerCase() ].split( ' ' )[ 0 ] }
                         </div>
                       ) }
 
                       {/* Bottom label (always shown) */ }
-                      <div className="overflow-hidden text-pretty absolute -top-[25%] font-black w-full text-[12px] text-center text-neutral-800 pointer-events-none px-0.5 leading-none">
+                      <div className="overflow-hidden text-pretty absolute z-50 -top-[3px] font-semibold max-w-fit text-[16px] bg-white bg-blur-2xl bg-opacity-80 backdrop-shadow-lg text-center text-neutral-800 pointer-events-none px-0.5 leading-none">
                         { bottomLabel && pieceNames[ piece.replace( '+', '' ).toLowerCase() ].split( ' ' ).slice( -1 ).join( ' ' ) }
                       </div>
                     </>
@@ -1900,19 +1979,19 @@ const ShogiBoard = () => {
           <>
             { replayMode && (
               <div className="mt-4 mx-auto w-full justify-around">
-                <div className="space-x-2">
-                  <button onClick={ downloadReplayAsJSON } className="float-left bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-1 px-3 rounded text-sm">
+                <div className="space-x-2 mx-auto">
+                  <button onClick={ downloadReplayAsJSON } className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-1 px-3 rounded text-sm">
                     Export JSON
                   </button>
-                  <button onClick={ downloadReplayAsCSV } className="float-left bg-teal-600 hover:bg-teal-700 text-white font-bold py-1 px-3 rounded text-sm">
+                  <button onClick={ downloadReplayAsCSV } className="bg-teal-600 hover:bg-teal-700 text-white font-bold py-1 px-3 rounded text-sm">
                     Export CSV
                   </button>
                 </div>
                 <div className="space-x-3 ">
-                  <button onClick={ () => setReplayPlaying( true ) } className="float-right bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded">
+                  <button onClick={ () => setReplayPlaying( true ) } className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded">
                     ▶ Play
                   </button>
-                  <button onClick={ () => setReplayPlaying( false ) } className="float-right bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-3 rounded">
+                  <button onClick={ () => setReplayPlaying( false ) } className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-3 rounded">
                     ⏸ Pause
                   </button>
 
@@ -1923,13 +2002,13 @@ const ShogiBoard = () => {
                       setReplayPlaying( false );
                       resetGame();
                     } }
-                    className="float-right bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-3 rounded mt-5"
+                    className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-3 rounded mt-5 mx-auto"
                   >
                     ⏹ Stop
                   </button>
                 </div>
 
-                <div className="w-full mt-4">
+                <div className="w-full mt-4 mx-auto">
                   <input
                     type="range"
                     min="0"
@@ -1945,7 +2024,7 @@ const ShogiBoard = () => {
                       setCurrentPlayer( move.playerAfter );
                       setLastMove( move.lastMoveAfter );
                     } }
-                    className="w-full" />
+                    className="w-full mx-auto" />
                   <div className="text-sm text-center mt-1">Move { replayIndex } / { moveHistory.length }</div>
                 </div>
                 <button
@@ -1960,7 +2039,7 @@ const ShogiBoard = () => {
                       setLastMove( move.lastMoveAfter );
                     }
                   } }
-                  className="float-left bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-3 rounded mt-5"
+                  className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-3 rounded mt-5"
                 >
                   ⏪ Back
                 </button>
