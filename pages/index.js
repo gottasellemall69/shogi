@@ -1085,62 +1085,52 @@ const ShogiBoard = () => {
 
         let score = 0;
         const centerSquares = [
-          [ 3, 3 ],
-          [ 3, 4 ],
-          [ 3, 5 ],
-          [ 4, 3 ],
-          [ 4, 4 ],
-          [ 4, 5 ],
-          [ 5, 3 ],
-          [ 5, 4 ],
-          [ 5, 5 ],
+          [ 3, 3 ], [ 3, 4 ], [ 3, 5 ],
+          [ 4, 3 ], [ 4, 4 ], [ 4, 5 ],
+          [ 5, 3 ], [ 5, 4 ], [ 5, 5 ],
         ];
 
         try {
           for ( let x = 0; x < 9; x++ ) {
             for ( let y = 0; y < 9; y++ ) {
-              const piece = board[ x ][ y ];
+              const piece = board[ x ]?.[ y ];
               if ( !piece || piece === " " ) continue;
+
               const isUpperCase = piece === piece.toUpperCase();
               const piecePlayer = isUpperCase ? "gote" : "sente";
-              const baseValue = pieceValues[ piece ] || 0;
+              const base = piece.replace( "+", "" ).toLowerCase();
+              const baseValue = pieceValues[ piece ] ?? pieceValues[ base ] ?? 0;
+
+              if ( typeof baseValue !== "number" ) {
+                console.warn( "Non-numeric baseValue for piece:", piece, baseValue );
+              }
+
               let pieceScore = baseValue;
 
-              // Center bonus
               if ( centerSquares.some( ( [ cx, cy ] ) => cx === x && cy === y ) ) {
                 pieceScore += 50;
               }
 
-              // King safety
               if ( piece.toLowerCase() === "k" ) {
                 let defenders = 0;
                 for ( let dx = -1; dx <= 1; dx++ ) {
                   for ( let dy = -1; dy <= 1; dy++ ) {
-                    const nx = x + dx,
-                      ny = y + dy;
-                    if ( nx >= 0 && nx < 9 && ny >= 0 && ny < 9 ) {
-                      const neighbor = board[ nx ][ ny ];
-                      if ( neighbor && neighbor !== " " ) {
-                        const neighborPlayer =
-                          neighbor === neighbor.toUpperCase()
-                            ? "gote"
-                            : "sente";
-                        if ( neighborPlayer === piecePlayer ) defenders++;
-                      }
+                    const nx = x + dx;
+                    const ny = y + dy;
+                    if ( nx < 0 || nx >= 9 || ny < 0 || ny >= 9 ) continue;
+                    const neighbor = board[ nx ]?.[ ny ];
+                    if ( neighbor && neighbor !== " " ) {
+                      const neighborPlayer = neighbor === neighbor.toUpperCase() ? "gote" : "sente";
+                      if ( neighborPlayer === piecePlayer ) defenders++;
                     }
                   }
                 }
                 pieceScore += defenders * 100;
               }
 
-              // Promotion‐zone bonus
               if ( piecePlayer === "sente" && x <= 2 && !piece.includes( "+" ) ) {
                 pieceScore += 100;
-              } else if (
-                piecePlayer === "gote" &&
-                x >= 6 &&
-                !piece.includes( "+" )
-              ) {
+              } else if ( piecePlayer === "gote" && x >= 6 && !piece.includes( "+" ) ) {
                 pieceScore += 100;
               }
 
@@ -1148,26 +1138,28 @@ const ShogiBoard = () => {
             }
           }
 
-          // Check‐state adjustments
           if ( typeof isInCheck === "function" ) {
             if ( isInCheck( forPlayer, board ) ) score -= 500;
-            if ( isInCheck( forPlayer === "sente" ? "gote" : "sente", board ) )
-              score += 300;
+            if ( isInCheck( forPlayer === "sente" ? "gote" : "sente", board ) ) score += 300;
           }
 
-          // After full evaluation, check if time is up
           if ( Date.now() - startTime > MAX_TIME ) {
             timeUp = true;
           }
 
           if ( typeof score !== "number" || isNaN( score ) || !isFinite( score ) ) {
+            console.warn( "Invalid score detected:", score );
             return 0;
           }
+
           return score;
+
         } catch ( e ) {
+          console.warn( "evaluatePosition error:", e );
           return 0;
         }
       };
+
 
       // Generate all legal moves, attach a small “frontBonus” for capturing directly forward
       const generateAllMoves = ( boardState, player ) => {
@@ -1278,6 +1270,9 @@ const ShogiBoard = () => {
               for ( const [ dx, dy ] of drops ) {
                 const b3 = cloneBoard( boardState );
                 b3[ dx ][ dy ] = cap.toLowerCase();
+
+                const centerBonus = ( 4 - Math.abs( 4 - dx ) + 4 - Math.abs( 4 - dy ) ) * 10;
+
                 try {
                   if ( !isInCheck( "sente", b3 ) ) {
                     moves.push( {
@@ -1287,6 +1282,7 @@ const ShogiBoard = () => {
                       board: b3,
                       capturedPiece: null,
                       frontBonus: 0,
+                      dropBonus: 300 + centerBonus,
                     } );
                   }
                 } catch ( _ ) {
@@ -1297,6 +1293,7 @@ const ShogiBoard = () => {
                     board: b3,
                     capturedPiece: null,
                     frontBonus: 0,
+                    dropBonus: 300 + centerBonus,
                   } );
                 }
               }
@@ -1309,16 +1306,20 @@ const ShogiBoard = () => {
 
         // Sort by frontBonus first, then by capture value
         moves.sort( ( a, b ) => {
-          if ( ( b.frontBonus || 0 ) !== ( a.frontBonus || 0 ) ) {
-            return ( b.frontBonus || 0 ) - ( a.frontBonus || 0 );
-          }
+          const frontDiff = ( b.frontBonus || 0 ) - ( a.frontBonus || 0 );
+          if ( frontDiff !== 0 ) return frontDiff;
+
           const aCap = a.capturedPiece
             ? pieceValues[ a.capturedPiece.replace( "+", "" ).toLowerCase() ] || 0
             : 0;
           const bCap = b.capturedPiece
             ? pieceValues[ b.capturedPiece.replace( "+", "" ).toLowerCase() ] || 0
             : 0;
-          return bCap - aCap;
+
+          const capDiff = bCap - aCap;
+          if ( capDiff !== 0 ) return capDiff;
+
+          return ( b.dropBonus || 0 ) - ( a.dropBonus || 0 ); // <-- prioritize drops last
         } );
 
         return moves;
@@ -1331,6 +1332,7 @@ const ShogiBoard = () => {
         console.log(
           `[MINIMAX] Depth ${ depth } | Player: ${ player } | Generated Moves: ${ allMoves.length }`
         );
+
         if ( allMoves.length === 0 ) {
           // No legal moves → evaluate statically
           const fallbackScore = evaluatePosition(
@@ -1343,6 +1345,7 @@ const ShogiBoard = () => {
         }
 
         let bestMove = null;
+
         if ( maximizingPlayer ) {
           let maxEval = -Infinity;
           for ( const move of allMoves ) {
@@ -1350,6 +1353,7 @@ const ShogiBoard = () => {
             if ( !move.board ) continue;
 
             let evaluation;
+
             if ( depth > 1 ) {
               evaluation = minimax(
                 move.board,
@@ -1362,9 +1366,9 @@ const ShogiBoard = () => {
               evaluation = evaluatePosition( move.board, "sente" );
             }
 
-            // At the root (depth = 2), give half of frontBonus as a tiny bias
-            if ( depth === 2 && move.frontBonus ) {
-              evaluation += move.frontBonus * 0.5;
+            if ( depth === 2 ) {
+              if ( move.frontBonus ) evaluation += move.frontBonus * 0.5;
+              if ( move.dropBonus ) evaluation += move.dropBonus * 0.5;
             }
 
             if ( depth === 2 ) {
@@ -1387,9 +1391,11 @@ const ShogiBoard = () => {
               maxEval = evaluation;
               bestMove = move;
             }
+
             alpha = Math.max( alpha, evaluation );
             if ( beta <= alpha ) break;
           }
+
           if ( depth === 2 ) {
             if ( !bestMove ) {
               // If somehow no bestMove, pick the first legal move as fallback
@@ -1401,6 +1407,7 @@ const ShogiBoard = () => {
             }
             return { move: bestMove, score: maxEval };
           }
+
           return maxEval;
         } else {
           let minEval = Infinity;
@@ -1441,9 +1448,11 @@ const ShogiBoard = () => {
               minEval = evaluation;
               bestMove = move;
             }
+
             beta = Math.min( beta, evaluation );
             if ( beta <= alpha ) break;
           }
+
           if ( depth === 2 ) {
             if ( !bestMove ) {
               const fallback = allMoves[ 0 ];
@@ -1454,6 +1463,7 @@ const ShogiBoard = () => {
             }
             return { move: bestMove, score: minEval };
           }
+
           return minEval;
         }
       };
