@@ -1,4 +1,4 @@
-﻿# Code review and integration findings
+# Code review and integration findings
 
 Reviewed the original tracked application at `e06f05f` and implemented the integration in the working tree. Original line references below refer to that commit, because the affected files have been replaced or reduced.
 
@@ -39,13 +39,13 @@ Validation completed on Windows x64 with Node 25.9.0/Chromium and on Linux x64 w
 | `npm run engine:setup` | Passed; pinned archive checksums verified, v9.40 executable/DLLs and WCSC31 model installed. |
 | `npm run engine:check` | Passed; six native engine moves validated, engine identified as `FukauraOu ORT_CPU-DL 9.40git 64AVX2BMI2`. |
 | `npm run engine:compare` | Passed; identical complete legal-move sets in 881 positions across five games; 178 drops and 69 promotions played. |
-| `npm test` | 26 passing rule, history, protocol and process-lifecycle regression tests. |
+| `npm test` | 28 passing rule, history, protocol, authentication and process-lifecycle regression tests. |
 | `npm run lint` | Passed without warnings or errors. |
-| `npm run build` | Passed; dynamic home page and server API built successfully. |
-| `npm run test:e2e` | Six passing production-browser/API tests, including real engine play as both sides, captures/promotion/drops, replay/history/export, cancellation, mobile layout and unique CSP nonces. |
+| `npm run build` | Passed; protected home page, sign-in page and server APIs built successfully. |
+| `npm run test:e2e` | Nine passing production-browser/API tests, including real engine play as both sides, captures/promotion/drops, replay/history/export, cancellation, viewport fitting, piece labels, hand sizing, history pagination and unique CSP nonces. |
 | `npm audit` and `npm audit --omit=dev` | Zero vulnerabilities in both the full and runtime dependency trees. |
 | `npm run vercel-build` (Linux clean install) | Passed: exact v9.40 source compiled, two real moves validated, Next production build succeeded, native assets verified in a 70.2 MiB function trace. ONNX Runtime requires GLIBC 2.27 / GLIBCXX 3.4.22, below the AL2023 toolchain baseline. |
-| `npm run test:hosted` | Three passing hosted browser/API tests on Windows and against the Linux production server: access cookies, native play, short search limits, malformed requests, repeated requests and concurrency. |
+| `npm run test:hosted` | Five passing private-page browser/API tests on Windows: page/data/API protection, automatic native play after sign-in, logout, session loss, login throttling, search limits, malformed requests and concurrency. The earlier three-test engine-access suite also passed against the clean Linux production server. |
 | `npm run engine:benchmark` (Linux) | Fresh one-second search: 2,791 ms wall time, 173.5 MiB peak engine RSS, 49.4 MiB Node parent RSS, four total engine threads, child reaped before completion. Local measurements, not Vercel performance guarantees. |
 | `npm ls --depth=0` and `git diff --check` | Passed; consistent top-level dependency tree and no whitespace errors. |
 
@@ -56,3 +56,11 @@ The original high-severity code and logic defects listed above are fixed. The pr
 ## Private page sign-in
 
 The page now checks the same signed session as the engine API before rendering. Anonymous HTML and Next.js data requests redirect to `/login`; engine GET and POST requests return 401. One shared-password sign-in authorizes the page and automatic engine play. Logout clears the root-scoped HttpOnly cookie; missing production credentials fail closed. `SITE_PASSWORD` is separate from the random `ENGINE_ACCESS_SECRET`; sessions are bound to both, so rotating either invalidates existing cookies. The original engine-only unlock component was removed. Current regressions cover wrong passwords, cookie flags, page/data/API protection, automatic play, logout, expiry, rotation and login throttling.
+
+The private-page build also verifies that home, login and session functions exclude native engine assets, while the engine function includes its required executable, libraries and model. Configured credentials are checked for accidental exposure in client build assets. The requested shared password was verified locally against the production server; Vercel environment configuration remains with the owner.
+
+## Viewport layout and piece labels
+
+The game measures and scales its complete layout to the available viewport, including controls that appear during play or review. Both captured hands reserve seven slots; their piece images use the same proportions as board pieces. Promotion choices occupy reserved space, and move history uses six-move pages rather than a scrolling list. One shared tooltip strip outside the board and hands displays English names, including promoted pieces, on hover or keyboard focus. Disabled pieces also support hover labels; Escape dismisses the label, and moves under the pointer refresh its text.
+
+The production browser suite verifies no page scrolling or offscreen controls at 1440x900, 1366x768, 1024x600, 390x844, 360x640 and 844x390 with captures and promotion choices present. Review controls are also checked at desktop, phone and landscape sizes. Tooltip bounds never intersect the board or hands; captured-piece images measure within 10% of board-piece size. All nine browser tests, lint, the production build and the Vercel bundle checks passed. Screenshots are stored in ignored `test-results/layout-*.png` files.

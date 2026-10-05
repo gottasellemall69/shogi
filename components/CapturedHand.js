@@ -1,20 +1,21 @@
 import Image from 'next/image';
 import { pieceImage, pieceNames } from '../lib/pieces.js';
+import { PieceButton } from './PieceTooltip';
 
 export default function CapturedHand({ player, pieces, disabled, selected, onSelect }) {
-  return <section className="rounded-lg border border-amber-200 bg-white p-3" aria-label={`${player} hand`}>
-    <h2 className="mb-2 text-sm font-semibold capitalize">{player} · pieces in hand</h2>
-    <div className="flex min-h-12 flex-wrap gap-2">
+  return <section className="captured-hand" aria-label={`${player} hand`}>
+    <h2 className="font-semibold capitalize">{player} · pieces in hand</h2>
+    <div className="hand-slots">
       {'RBGSNLP'.split('').map((piece) => {
         const count = pieces.filter((value) => value === piece).length;
-        return count ? <button key={piece} type="button" disabled={disabled} aria-pressed={selected === piece}
+        return count ? <PieceButton key={piece} name={pieceNames[piece]} wrapperClassName="hand-slot" type="button" disabled={disabled} aria-pressed={selected === piece}
           aria-label={`Drop ${pieceNames[piece]} (${count} available)`} onClick={() => onSelect(piece)}
-          className={`flex items-center rounded border px-2 py-1 disabled:opacity-50 ${selected === piece ? 'border-blue-600 bg-blue-100' : 'border-amber-200'}`}>
-          <Image unoptimized src={pieceImage(piece)} alt={pieceNames[piece]} width={30} height={36} className="h-9 w-8 object-contain" />
-          <span className="text-sm">×{count}</span>
-        </button> : null;
+          className={`hand-piece ${selected === piece ? 'border-blue-600 bg-blue-100' : 'border-amber-200 bg-white'}`}>
+          <Image unoptimized src={pieceImage(piece)} alt={pieceNames[piece]} width={56} height={56} className="hand-piece-image" />
+          <span className="hand-count" aria-hidden="true">{count}</span>
+        </PieceButton> : <div key={piece} className="hand-slot hand-slot-empty" aria-hidden="true" />;
       })}
-      {!pieces.length && <p className="self-center text-sm text-stone-500">No captured pieces</p>}
+      {!pieces.length && <p className="empty-hand">No captured pieces</p>}
     </div>
   </section>;
 }
