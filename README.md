@@ -52,9 +52,9 @@ HTML is dynamically rendered with a fresh script CSP nonce per response. Images 
 
 ## Vercel Hobby and Linux hosting
 
-Deploy directly to Vercel Hobby using [the deployment guide](docs/vercel.md). The build compiles the exact v9.40 source for Linux, packages ONNX Runtime and the model, plays two smoke-test moves, and verifies the Next.js function trace. Set a private `ENGINE_ACCESS_SECRET` in Vercel, then unlock AI in the app. No separate engine server is required. Hosted searches are limited to one second and every child is stopped before its request completes.
+Deploy directly to Vercel Hobby using [the deployment guide](docs/vercel.md). The build compiles the exact v9.40 source for Linux, packages ONNX Runtime and the model, plays two smoke-test moves, and verifies the Next.js function trace. Set `SITE_PASSWORD` for invited players and keep `ENGINE_ACCESS_SECRET` as a separate random signing key. The whole page requires sign-in; the engine connects automatically after that one password entry. No separate engine server is required. Hosted searches are limited to one second and every child is stopped before its request completes.
 
-On Linux x64, `npm run engine:setup` requires g++, make, tar and unzip. The default executable is `engines/linux/YaneuraOu`; the default model directory is `engines/eval`. On Windows, the official prebuilt executable and DLLs remain supported. Local scripts bind to loopback. Public hosting needs the access key and Vercel Firewall rule described in the guide. Tournament clocks, handicap setup, and negotiated impasse/draw adjudication are not implemented.
+On Linux x64, `npm run engine:setup` requires g++, make, tar and unzip. The default executable is `engines/linux/YaneuraOu`; the default model directory is `engines/eval`. On Windows, the official prebuilt executable and DLLs remain supported. Local scripts bind to loopback. Hosted play uses the private page sign-in and Vercel Firewall rule described in the guide. Production mode stays locked if credentials are missing. Tournament clocks, handicap setup, and negotiated impasse/draw adjudication are not implemented.
 
 ## Verification
 

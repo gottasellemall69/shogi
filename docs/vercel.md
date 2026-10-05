@@ -5,17 +5,26 @@ This app runs its own Linux YaneuraOu v9.40 CPU engine inside a Node.js function
 ## Deploy
 
 1. Import the repository into a Vercel project with **Next.js** as the framework and **Node.js 22.x**. Keep Fluid Compute enabled. `vercel.json` supplies `npm ci` and `npm run vercel-build`; remove any old dashboard build override. Do not choose static export or Edge runtime.
-2. Add **ENGINE_ACCESS_SECRET** to both Preview and Production environment variables. Use a random value of at least 32 characters. Generate one locally with:
+2. Set the following server-only variables in both Preview and Production:
+
+   | Variable | Purpose |
+   | --- | --- |
+   | `SITE_PASSWORD` | The shared password for invited players; 12-512 characters. |
+   | `ENGINE_ACCESS_SECRET` | An independent random session-signing key, 32-512 characters. Keep your existing value if already configured. |
+
+   Generate a signing key if needed:
 
    ```powershell
    node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"
    ```
 
-   Save it in your password manager. Enter this same value into **Engine access key** in the app. The server exchanges it for an eight-hour HttpOnly, Secure, SameSite=Strict cookie. It never enters local storage or the JavaScript bundle. Rotating the environment variable and redeploying invalidates existing sessions. Missing or weak configuration disables hosted AI; local two-player play still works.
-3. In the project's **Firewall**, add its Hobby rate-limit rule: path starts with `/api/engine`, method `POST`, fixed window **20 requests per 60 seconds**, count by **IP**, action **Rate Limit / HTTP 429**. Publish the rule. It covers both searches and the unlock endpoint before they reach compute. This is account configuration; it cannot be created by committing `vercel.json`. The app additionally throttles each running instance, but that alone does not cover all scaled instances.
-4. Deploy a preview. Open it, unlock AI, move a pawn, and confirm the reply. Choose Gote to check that AI makes the first move. Promote the verified preview when ready.
+   Share only the site password with your invited players. The private sign-in page appears before the board. Signing in creates an eight-hour HttpOnly, Secure, SameSite=Strict cookie covering the page and API; the engine then connects automatically. Neither credential is sent in page props, stored in local storage, or embedded in the JavaScript bundle. Changing either variable and redeploying invalidates existing sessions. Sign out removes the current browser's session. Missing or invalid production configuration keeps the page and engine locked.
 
-Do **not** carry Windows `YANEURAOU_*` path overrides into Vercel. Only `ENGINE_ACCESS_SECRET` is required; `YANEURAOU_REQUEST_SCOPED=1` is supplied by `vercel.json`. The build itself does not need or print the access key. Files in `engines/` and `.cache/` are generated and ignored; include all application/configuration/scripts changes in your commit.
+   For compatibility, if `SITE_PASSWORD` is absent, the existing `ENGINE_ACCESS_SECRET` is also accepted as the shared password. Set `SITE_PASSWORD` to use a separate password for friends. Existing engine-only cookies must be replaced by signing in once after this update.
+3. In the project's **Firewall**, add its Hobby rate-limit rule: path starts with `/api/engine`, method `POST`, fixed window **20 requests per 60 seconds**, count by **IP**, action **Rate Limit / HTTP 429**. Publish the rule. It covers both searches and password sign-in before they reach compute. This is account configuration; it cannot be created by committing `vercel.json`. The app additionally throttles each running instance, but that alone does not cover all scaled instances.
+4. Deploy a preview. Open it, sign in once, move a pawn, and confirm the automatic engine reply. Verify Sign out returns to the private sign-in page. Choose Gote to check that AI makes the first move. Promote the verified preview when ready.
+
+Do **not** carry Windows `YANEURAOU_*` path overrides into Vercel. Configure `SITE_PASSWORD` and `ENGINE_ACCESS_SECRET` as above; `YANEURAOU_REQUEST_SCOPED=1` is supplied by `vercel.json`. The build itself does not need or print either credential. Store the real values only in ignored local environment files and Vercel settings. Files in `engines/` and `.cache/` are generated and ignored; include all application/configuration/scripts changes in your commit.
 
 ## What the build verifies
 
@@ -36,13 +45,13 @@ The native engine and model stay outside `public/`. Their licenses/notices and a
 - One native operation runs per function instance. Overlap returns 429 with `Retry-After`. Scaling creates independent instances, never shared game positions.
 - The native child is killed and reaped before a search response completes. Model initialization and search have separate timeouts; the API has a 30-second cancellation deadline and Vercel a 60-second function limit. Disconnects cancel active native work when delivered by the runtime; the deadlines still bound work if cancellation is not forwarded.
 - Health checks verify installed files without starting the engine. Only authenticated searches perform inference. Hosted access is required even if Vercel's system environment variables are disabled.
-- The app's throttle is **per instance**, and the WAF rule is **per IP**. Neither is a global monthly compute quota. Keep the key private and monitor project usage; do not advertise this as an unrestricted public analysis API.
+- The app's throttle is **per instance**, and the WAF rule is **per IP**. Neither is a global monthly compute quota. Share the password only with your invited players and monitor project usage; do not advertise this as an unrestricted public analysis API.
 
 Hobby is for personal, non-commercial projects. Its documented allowance currently includes 4 active CPU hours and 360 GB-hours of provisioned memory per month. This engine uses that allowance; cold starts and Next.js work also count. One second of search is not a promise of one billable CPU second. Usage exhaustion can pause the project until its allowance resets.
 
 ## Local checks
 
-On Windows, `npm run test:hosted` starts the production app with hosted limits and a test-only access key. It checks anonymous rejection, actual browser unlock/cookies, native moves, time validation and overlapping requests. Build the app first. The normal `npm run test:e2e` retains local persistent-engine coverage.
+On Windows, `npm run test:hosted` starts the production app with hosted limits and test-only credentials. It checks the page and Next.js data redirects, anonymous API rejection, browser sign-in and sign-out, automatic native play, session expiry, time validation, overlapping requests and password-guessing limits. Build the app first. The normal `npm run test:e2e` retains local persistent-engine coverage.
 
 For a Linux clean-room check, copy the sources into an isolated directory, use Node 22, install `g++`, `make`, `tar`, and `unzip`, then run:
 
@@ -54,7 +63,7 @@ npm test
 
 Use `HOSTED_TEST_URL` and `HOSTED_TEST_SECRET` to run the hosted browser suite against a separately running test server. A protected Vercel preview may require your account's automation bypass separately. Never use production credentials in committed test files.
 
-A clean Linux Node 22 install completed the exact Vercel build command and all 26 unit tests. The function trace was 70.2 MiB. All three hosted browser tests also passed against the Linux server. A fresh one-second search took 2,791 ms including startup, with 173.5 MiB peak engine RSS plus 49.4 MiB for the Node benchmark parent. Use `npm run engine:benchmark` on Linux to repeat that local measurement; it is not a guarantee of cloud latency or billed CPU.
+A clean Linux Node 22 install completed the exact Vercel build command and all 26 then-current unit tests. The function trace was 70.2 MiB. The original three hosted browser tests also passed against the Linux server. The later page-password update is covered by the current local production-browser suite and unit tests. A fresh one-second search took 2,791 ms including startup, with 173.5 MiB peak engine RSS plus 49.4 MiB for the Node benchmark parent. Use `npm run engine:benchmark` on Linux to repeat that local measurement; it is not a guarantee of cloud latency or billed CPU.
 
 This repository has been checked locally on Windows and Linux. It has not been deployed into your Vercel account; your preview is the final check of account settings and Vercel-specific cold-start performance.
 

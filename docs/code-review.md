@@ -26,7 +26,7 @@ New integration checks cover command injection, illegal histories and returned m
 ## Remaining findings / scope limits
 
 - **Dependency maintenance:** all seven high audit entries are resolved. The Next ESLint plugin is intentionally omitted because even its current release still depends on the vulnerable `fast-glob` chain. ESLint retains standard JavaScript, React and hooks checks; Next builds emit an informational missing-plugin warning. ESLint 9 is used for React-plugin compatibility and currently emits an upstream support/deprecation notice during installation. No vulnerabilities are reported by the current audit.
-- **Hosting and quotas:** the application now builds the pinned Linux engine automatically for Vercel, requires a strong hosted access key, caps search time, and reaps each child before returning. See [Vercel setup](vercel.md) for the required environment variable and per-IP Firewall rule. In-process limits do not enforce a global monthly quota. Vercel account deployment remains with the owner.
+- **Hosting and quotas:** the application now builds the pinned Linux engine automatically for Vercel, requires a site password before serving the board or allowing engine API access, caps search time, and reaps each child before returning. See [Vercel setup](vercel.md) for the required environment variables and per-IP Firewall rule. In-process limits do not enforce a global monthly quota. Vercel account deployment remains with the owner.
 - **Playing strength and tournament features:** CPU inference with the older WCSC31 model is verified; GPU builds and newer models are configurable but untested. Tournament clocks, handicap setup and negotiated impasse adjudication are absent. This is not a certified tournament rules implementation.
 
 ## Verification evidence
@@ -52,3 +52,7 @@ Validation completed on Windows x64 with Node 25.9.0/Chromium and on Linux x64 w
 Browser artifacts (ignored by Git) are in `test-results/shogi-desktop.png` and `test-results/shogi-mobile.png`; the mobile screenshot intentionally shows the unavailable-engine test case. Production browser checks used an existing local Chromium through `PLAYWRIGHT_CHROMIUM_EXECUTABLE`.
 
 The original high-severity code and logic defects listed above are fixed. The previous seven high dependency entries are also resolved. This is a focused review and regression suite, not a claim that every possible defect has been eliminated.
+
+## Private page sign-in
+
+The page now checks the same signed session as the engine API before rendering. Anonymous HTML and Next.js data requests redirect to `/login`; engine GET and POST requests return 401. One shared-password sign-in authorizes the page and automatic engine play. Logout clears the root-scoped HttpOnly cookie; missing production credentials fail closed. `SITE_PASSWORD` is separate from the random `ENGINE_ACCESS_SECRET`; sessions are bound to both, so rotating either invalidates existing cookies. The original engine-only unlock component was removed. Current regressions cover wrong passwords, cookie flags, page/data/API protection, automatic play, logout, expiry, rotation and login throttling.

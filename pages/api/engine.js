@@ -19,8 +19,8 @@ export default async function handler(req, res) {
     assertSameOrigin(req);
     const secret = accessSecret();
     if (!hasAccess(req, secret)) {
-      status = req.method === 'GET' ? 200 : 401;
-      response = { ready: false, authRequired: true, maxMovetime: maxThinkingTime(), error: req.method === 'POST' ? 'Unlock the engine to play against AI.' : null };
+      status = 401;
+      response = { ready: false, authRequired: true, maxMovetime: maxThinkingTime(), error: 'Please sign in to access this private game.' };
     } else if (req.method === 'GET') {
       // Hosted health checks must not load a neural model on every page visit.
       // The build smoke test verifies the binary/model; each POST handshakes again.

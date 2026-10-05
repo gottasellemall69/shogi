@@ -26,6 +26,10 @@ export default function useShogiGame() {
       setEngine((previous) => ({ ...previous, checking: true, error: null }));
       try {
         const response = await fetch('/api/engine', { signal: controller.signal });
+        if (response.status === 401) {
+          if (active && !controller.signal.aborted) window.location.replace('/login');
+          return;
+        }
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Engine could not start.');
         if (active) setEngine({ ...data, checking: false, error: null });
@@ -53,6 +57,10 @@ export default function useShogiGame() {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: controller.signal,
           body: JSON.stringify({ moves: game.moves.slice(0, game.cursor), movetime }),
         });
+        if (response.status === 401) {
+          if (active && !controller.signal.aborted) window.location.replace('/login');
+          return;
+        }
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Engine move failed.');
         if (!active || controller.signal.aborted) return;
