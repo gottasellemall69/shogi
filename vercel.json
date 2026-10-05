@@ -1,0 +1,14 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "buildCommand": "npm run vercel-build",
+  "installCommand": "npm ci",
+  "functions": {
+    "pages/api/engine.js": {
+      "maxDuration": 300
+    }
+  },
+  "env": {
+    "YANEURAOU_REQUEST_SCOPED": "1"
+  }
+}

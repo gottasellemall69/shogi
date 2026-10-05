@@ -1,0 +1,12 @@
+.cache
+.next
+.git
+node_modules
+engines/*
+!engines/README.md
+test-results
+playwright-report
+.env*
+!.env.example
+
+.next-dev/

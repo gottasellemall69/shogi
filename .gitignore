@@ -73,7 +73,7 @@ web_modules/
 .yarn-integrity
 
 # dotenv environment variable files
-.env
+.env.*
 .env.development.local
 .env.test.local
 .env.production.local
@@ -132,3 +132,14 @@ dist
 repomix-output.txt
 .aider*
 repomix-output.xml
+
+# Downloaded native engine, evaluation files and local verification artifacts
+engines/*
+!engines/README.md
+test-results/
+playwright-report/
+playwright.*
+tests/
+.vercel/
+
+.next-dev/
