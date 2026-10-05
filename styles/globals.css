@@ -91,3 +91,12 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
   .game-columns { grid-template-columns: minmax(0, 1fr) minmax(240px, .8fr); }
   .game-sidebar { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Endpoint outlines show the last move without covering pieces or intercepting input. */
+.last-move-marker { position: absolute; inset: 2px; border: 2px solid #0f766e; border-radius: 3px; pointer-events: none; }
+.last-move-origin { border-style: dashed; background: rgb(13 148 136 / 10%); }
+.last-move-destination { border-width: 3px; }
+.last-move-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; width: 100%; color: #115e59; font-size: 12px; line-height: 18px; }
+.last-move-key { display: inline-flex; align-items: center; gap: 3px; margin-right: 2px; }
+.last-move-key i { display: block; width: 10px; height: 10px; border: 2px dashed #0f766e; border-radius: 2px; }
+.last-move-key i + i { border-style: solid; }

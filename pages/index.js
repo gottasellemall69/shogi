@@ -2,12 +2,13 @@ import Head from 'next/head';
 import { useEffect, useMemo, useState } from 'react';
 import ShogiBoard from '../components/ShogiBoard';
 import CapturedHand from '../components/CapturedHand';
+import { pieceNames } from '../lib/pieces.js';
 import SignOutButton from '../components/SignOutButton';
 import GameViewport from '../components/GameViewport';
 import { PieceTooltip, PieceTooltipProvider } from '../components/PieceTooltip';
 import { pageAccess } from '../lib/engine-access.js';
 import useShogiGame from '../hooks/useShogiGame';
-import { canDeclareWin, gameResult, isInCheck, moveToUSI, otherPlayer, ownerOf, toSFEN } from '../lib/shogi';
+import { canDeclareWin, gameResult, isInCheck, moveToUSI, otherPlayer, ownerOf, squareToUSI, toSFEN } from '../lib/shogi';
 
 const button = 'game-button';
 const historyPageSize = 6;
@@ -26,6 +27,8 @@ function download(content, type, filename) {
 export default function ShogiPage({ passwordProtected }) {
   const session = useShogiGame();
   const { game, position, result, canPlay, engine } = session;
+  const lastMove = position.lastMove;
+  const movedPiece = lastMove ? pieceNames[position.board[lastMove.to[0]][lastMove.to[1]].toUpperCase()] : null;
   const [selection, setSelection] = useState(null);
   const [promotion, setPromotion] = useState(null);
   const [historyPage, setHistoryPage] = useState(0);
@@ -67,7 +70,11 @@ export default function ShogiPage({ passwordProtected }) {
           <div className="turn-status" aria-live="polite">
             <p className="font-semibold capitalize">{result ? `${result.winner || 'Draw'}${result.winner ? ' wins' : ''} — ${result.reason}`
               : `${position.turn} to move${isInCheck(position) ? ' · in check' : ''}`}</p>
-            <p className="text-sm text-stone-600">Move {game.cursor}{position.lastMove ? ` · ${moveToUSI(position.lastMove)}` : ''}</p>
+            <p className="text-sm text-stone-600">Move {game.cursor}</p>
+            {lastMove && <p className="last-move-summary" aria-label="Last move">
+              <span className="last-move-key" aria-hidden="true"><i /><i /></span>
+              {otherPlayer(position.turn) === 'sente' ? 'Sente' : 'Gote'} {movedPiece}: {lastMove.from ? squareToUSI(lastMove.from) : 'from hand'} → {squareToUSI(lastMove.to)}
+            </p>}
           </div>
           <PieceTooltip />
           <ShogiBoard position={position} targets={targets} selected={selection} onSquare={onSquare} disabled={!canPlay || !!promotion} />
