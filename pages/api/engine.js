@@ -1,6 +1,7 @@
 ﻿import { EngineError, engineConfig, getEngine, maxThinkingTime, requestScoped } from '../../lib/engine.js';
 import { accessSecret, assertSameOrigin, hasAccess, throttle } from '../../lib/engine-access.js';
 import { applyMove, canDeclareWin, gameResult, parseUSIMove, replayMoves, toSFEN } from '../../lib/shogi.js';
+import { DEFAULT_DIFFICULTY, difficultyProfile } from '../../lib/difficulty.js';
 
 export const config = { api: { bodyParser: { sizeLimit: '16kb' } } };
 
@@ -31,7 +32,8 @@ export default async function handler(req, res) {
     } else {
       if (!/^application\/json(?:\s*;|$)/i.test(req.headers['content-type'] || '')) throw new EngineError('Send application/json.', 415);
       if (secret || requestScoped()) throttle('search', 20);
-      const { moves, movetime = 1000 } = req.body || {};
+      const { moves, movetime = 1000, difficulty = DEFAULT_DIFFICULTY } = req.body || {};
+      difficultyProfile(difficulty);
       if (!Number.isInteger(movetime) || movetime < 100 || movetime > maxThinkingTime()) throw new EngineError(`Thinking time must be between 100 and ${maxThinkingTime()} milliseconds.`, 400);
       let positions;
       try {
@@ -41,7 +43,7 @@ export default async function handler(req, res) {
         if (gameResult(positions)) throw new Error('The game is already over.');
       } catch (error) { throw new EngineError(error.message, 400); }
       const position = positions.at(-1);
-      const result = await getEngine().bestMove(moves, movetime, controller.signal);
+      const result = await getEngine().bestMove(moves, movetime, controller.signal, difficulty);
       try {
         if (result.bestmove === 'win') {
           if (!canDeclareWin(position)) throw new Error('Invalid declaration.');

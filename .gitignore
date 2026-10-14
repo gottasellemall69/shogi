@@ -140,6 +140,13 @@ test-results/
 playwright-report/
 playwright.*
 tests/
+# Keep focused difficulty regression coverage in version control.
+!tests/
+tests/*
+!tests/engine-difficulty.test.mjs
+!tests/browser/
+tests/browser/*
+!tests/browser/difficulty.spec.mjs
 .vercel/
 
 .next-dev/

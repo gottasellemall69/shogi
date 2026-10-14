@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { createGame, gameReducer } from '../lib/game.js';
 import { gameResult, legalMoves, otherPlayer, toSFEN } from '../lib/shogi.js';
+import { DEFAULT_DIFFICULTY } from '../lib/difficulty.js';
 
 export default function useShogiGame() {
   const [game, dispatch] = useReducer(gameReducer, undefined, createGame);
   const [vsAI, setVsAI] = useState(true);
   const [human, setHuman] = useState('sente');
   const [movetime, setMovetime] = useState(1000);
+  const [difficulty, setDifficulty] = useState(DEFAULT_DIFFICULTY);
   const [engine, setEngine] = useState({ ready: false, checking: true, error: null, name: null });
   const [retry, setRetry] = useState(0);
   const [aiError, setAiError] = useState(null);
@@ -55,7 +57,7 @@ export default function useShogiGame() {
       try {
         const response = await fetch('/api/engine', {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: controller.signal,
-          body: JSON.stringify({ moves: game.moves.slice(0, game.cursor), movetime }),
+          body: JSON.stringify({ moves: game.moves.slice(0, game.cursor), movetime, difficulty }),
         });
         if (response.status === 401) {
           if (active && !controller.signal.aborted) window.location.replace('/login');
@@ -78,7 +80,7 @@ export default function useShogiGame() {
       }
     }, 150);
     return () => { active = false; clearTimeout(timer); controller.abort(); request.current = null; setThinking(false); };
-  }, [game, position, result, vsAI, human, movetime, engine.ready, engine.checking, retry]);
+  }, [game, position, result, vsAI, human, movetime, difficulty, engine.ready, engine.checking, retry]);
 
   useEffect(() => {
     if (!playing || !game.reviewing) return;
@@ -95,7 +97,7 @@ export default function useShogiGame() {
   }, []);
   const canPlay = !result && !game.reviewing && (!vsAI || position.turn === human);
   return {
-    game, position, result, moves, canPlay, vsAI, human, movetime, engine, thinking, aiError, playing, speed,
+    game, position, result, moves, canPlay, vsAI, human, movetime, difficulty, engine, thinking, aiError, playing, speed,
     play: (move) => { if (canPlay) act({ type: 'move', move }); },
     end: (reason, winner) => { if (canPlay) act({ type: 'end', result: { reason, winner } }); },
     reset: () => act({ type: 'reset' }),
@@ -104,6 +106,7 @@ export default function useShogiGame() {
     toggleAI: () => { act({ type: 'invalidate' }); setVsAI((value) => !value); },
     changeHuman: (value) => { act({ type: 'reset' }); setHuman(value); },
     changeMovetime: (value) => { act({ type: 'invalidate' }); setMovetime(value); },
+    changeDifficulty: (value) => { act({ type: 'reset' }); setDifficulty(value); },
     retryEngine: () => { request.current?.abort(); setEngine((value) => ({ ...value, ready: false, checking: true })); setRetry((value) => value + 1); },
     setPlaying, setSpeed,
   };

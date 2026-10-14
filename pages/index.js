@@ -8,6 +8,7 @@ import GameViewport from '../components/GameViewport';
 import { PieceTooltip, PieceTooltipProvider } from '../components/PieceTooltip';
 import { pageAccess } from '../lib/engine-access.js';
 import useShogiGame from '../hooks/useShogiGame';
+import { DIFFICULTIES } from '../lib/difficulty.js';
 import { canDeclareWin, gameResult, isInCheck, moveToUSI, otherPlayer, ownerOf, squareToUSI, toSFEN } from '../lib/shogi';
 
 const button = 'game-button';
@@ -109,7 +110,14 @@ export default function ShogiPage({ passwordProtected }) {
                 <option value="sente">Sente · first</option><option value="gote">Gote · second</option>
               </select>
             </label>
-            <label className="block text-sm">Thinking time
+            <label className="block text-sm">Difficulty (starts a new game)
+              <select value={session.difficulty} onChange={(event) => session.changeDifficulty(event.target.value)}
+                aria-describedby="difficulty-description" disabled={!session.vsAI} className="mt-1 w-full rounded border p-1">
+                {Object.entries(DIFFICULTIES).map(([value, { label }]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </label>
+            <p id="difficulty-description" className="text-sm text-stone-600">{DIFFICULTIES[session.difficulty].description}</p>
+            <label className="block text-sm">Thinking time limit
               <select value={session.movetime} onChange={(event) => session.changeMovetime(Number(event.target.value))} className="mt-1 w-full rounded border p-1">
                 {[250, 1000, 3000, 10000].filter((time) => time <= (engine.maxMovetime || 10000)).map((time) => <option key={time} value={time}>{time / 1000} {time === 1000 ? 'second' : 'seconds'}</option>)}
               </select>
