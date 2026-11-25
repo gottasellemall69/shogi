@@ -1,8 +1,6 @@
 import { createHash } from 'node:crypto';
-import { createReadStream, createWriteStream, existsSync } from 'node:fs';
+import { createReadStream, existsSync } from 'node:fs';
 import { chmod, copyFile, mkdir, readdir, readFile, rename, writeFile } from 'node:fs/promises';
-import { Readable } from 'node:stream';
-import { pipeline } from 'node:stream/promises';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -25,7 +23,7 @@ const windowsAsset = {
 };
 const sourceAsset = {
   name: 'yaneuraou-source.tar.gz',
-  url: `https://github.com{sourceCommit}`,
+  url: `https://github.com{sourceCommit}.tar.gz`,
   sha256: '4d40f46372b7979ecbb33acf8587473f2740ffd0a0480d27fbb13fb41f6d52a3',
 };
 const nugetOrtAsset = {
@@ -39,27 +37,38 @@ async function sha256(filename) {
   return hash.digest('hex');
 }
 
+function run(command, args, options = {}) {
+  const result = spawnSync(command, args, { cwd: root, windowsHide: true, stdio: 'inherit', ...options });
+  if (result.error || result.status !== 0) {
+    throw new Error(`${command} ${args.join(' ')} failed: ${result.error?.message || `exit code ${result.status}`}`);
+  }
+}
+
 async function download(asset) {
   const filename = path.join(cache, asset.name);
   if (existsSync(filename) && (!asset.sha256 || await sha256(filename) === asset.sha256)) return filename;
-  console.log(`Downloading ${asset.name}...`);
-  const response = await fetch(asset.url, {
-    headers: { 'User-Agent': 'Shogi-App-Engine-Setup/1.0' },
-    signal: AbortSignal.timeout(300000),
-  });
-  if (!response.ok) throw new Error(`Download failed: HTTP ${response.status} (${asset.url})`);
+  console.log(`Downloading ${asset.name} from ${asset.url}...`);
   const temporary = `${filename}.partial`;
-  await pipeline(Readable.fromWeb(response.body), createWriteStream(temporary));
+
+  if (process.platform === 'linux') {
+    run('curl', ['-fsSL', '--retry', '3', '--retry-delay', '2', '-A', 'Shogi-App-Engine-Setup/1.0', asset.url, '-o', temporary]);
+  } else {
+    const response = await fetch(asset.url, {
+      headers: { 'User-Agent': 'Shogi-App-Engine-Setup/1.0' },
+      signal: AbortSignal.timeout(300000),
+    });
+    if (!response.ok) throw new Error(`Download failed: HTTP ${response.status} (${asset.url})`);
+    const { createWriteStream } = await import('node:fs');
+    const { Readable } = await import('node:stream');
+    const { pipeline } = await import('node:stream/promises');
+    await pipeline(Readable.fromWeb(response.body), createWriteStream(temporary));
+  }
+
   if (asset.sha256 && await sha256(temporary) !== asset.sha256) {
     throw new Error(`Checksum mismatch for ${asset.name}; refusing to extract.`);
   }
   await rename(temporary, filename);
   return filename;
-}
-
-function run(command, args, options = {}) {
-  const result = spawnSync(command, args, { cwd: root, windowsHide: true, stdio: 'inherit', ...options });
-  if (result.error || result.status !== 0) throw new Error(`${command} failed: ${result.error?.message || result.status}`);
 }
 
 async function installLinux() {
@@ -79,31 +88,24 @@ async function installLinux() {
 
   // 2. Download & extract ONNX Runtime headers + Linux x64 .so from NuGet (.nupkg is a ZIP)
   const nupkgPath = await download(nugetOrtAsset);
-  run('unzip', [
-    '-o',
-    nupkgPath,
-    'build/native/include/*',
-    'runtimes/linux-x64/native/*',
-    'LICENSE.txt',
-    'ThirdPartyNotices.txt',
-    '-d',
-    nupkgExtract,
-  ]);
+  run('bsdtar', ['-xf', nupkgPath, '-C', nupkgExtract]);
 
-  // Copy headers into runtime/include
   const extractedInclude = path.join(nupkgExtract, 'build/native/include');
   for (const file of await readdir(extractedInclude)) {
     await copyFile(path.join(extractedInclude, file), path.join(runtime, 'include', file));
   }
 
-  // Copy shared library into runtime/lib with versioned filename expected by linker
   const soFilename = `libonnxruntime.so.${ortVersion}`;
   await copyFile(
     path.join(nupkgExtract, 'runtimes/linux-x64/native/libonnxruntime.so'),
     path.join(runtime, 'lib', soFilename)
   );
-  await copyFile(path.join(nupkgExtract, 'LICENSE.txt'), path.join(runtime, 'LICENSE'));
-  await copyFile(path.join(nupkgExtract, 'ThirdPartyNotices.txt'), path.join(runtime, 'ThirdPartyNotices.txt'));
+  if (existsSync(path.join(nupkgExtract, 'LICENSE.txt'))) {
+    await copyFile(path.join(nupkgExtract, 'LICENSE.txt'), path.join(runtime, 'LICENSE'));
+  }
+  if (existsSync(path.join(nupkgExtract, 'ThirdPartyNotices.txt'))) {
+    await copyFile(path.join(nupkgExtract, 'ThirdPartyNotices.txt'), path.join(runtime, 'ThirdPartyNotices.txt'));
+  }
 
   const source = path.join(build, `YaneuraOu-${sourceCommit}`);
 
@@ -136,17 +138,20 @@ async function installLinux() {
   await copyFile(path.join(source, 'source/YaneuraOu'), path.join(linux, 'YaneuraOu'));
   await chmod(path.join(linux, 'YaneuraOu'), 0o755);
 
-  // Copy real files for both loader names so Vercel tracing never depends on symlinks
   for (const name of ['libonnxruntime.so.1', soFilename]) {
     await copyFile(path.join(runtime, 'lib', soFilename), path.join(linux, name));
   }
 
   await copyFile(path.join(source, 'LICENSE'), path.join(linux, 'YaneuraOu-LICENSE.txt'));
-  await copyFile(path.join(runtime, 'LICENSE'), path.join(linux, 'ONNXRuntime-LICENSE.txt'));
-  await copyFile(path.join(runtime, 'ThirdPartyNotices.txt'), path.join(linux, 'ONNXRuntime-ThirdPartyNotices.txt'));
+  if (existsSync(path.join(runtime, 'LICENSE'))) {
+    await copyFile(path.join(runtime, 'LICENSE'), path.join(linux, 'ONNXRuntime-LICENSE.txt'));
+  }
+  if (existsSync(path.join(runtime, 'ThirdPartyNotices.txt'))) {
+    await copyFile(path.join(runtime, 'ThirdPartyNotices.txt'), path.join(linux, 'ONNXRuntime-ThirdPartyNotices.txt'));
+  }
 
   // Extract model
-  run('unzip', ['-o', await download(modelAsset), 'model-0000225kai.onnx', '-d', path.join(destination, 'eval')]);
+  run('bsdtar', ['-xf', await download(modelAsset), '-C', path.join(destination, 'eval'), 'model-0000225kai.onnx']);
 
   await writeFile(
     path.join(linux, 'build.json'),
