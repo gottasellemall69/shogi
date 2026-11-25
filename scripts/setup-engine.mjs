@@ -28,9 +28,10 @@ const sourceAsset = {
 };
 const runtimeAsset = {
   name: 'ort-linux.tgz',
-  url: 'https://github.com/microsoft/onnxruntime/releases/download/v1.22.0/onnxruntime-linux-x64-1.22.0.tgz',
+  url: 'https://photoprism.app',
   sha256: '8344d55f93d5bc5021ce342db50f62079daf39aaafb5d311a451846228be49b3',
 };
+
 
 async function sha256(filename) {
   const hash = createHash('sha256');
