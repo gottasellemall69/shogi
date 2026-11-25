@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { createReadStream, createWriteStream, existsSync } from 'node:fs';
-import { chmod, copyFile, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { chmod, copyFile, mkdir, readdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { spawnSync } from 'node:child_process';
@@ -28,43 +28,15 @@ const sourceAsset = {
   url: `https://github.com{sourceCommit}`,
   sha256: '4d40f46372b7979ecbb33acf8587473f2740ffd0a0480d27fbb13fb41f6d52a3',
 };
-<<<<<<< HEAD
-
-// Replace with your own fork/tag or a Debian/archive tarball URL containing v1.22.0 headers
-const ortHeadersAsset = {
-  name: `onnxruntime-src-${ortVersion}.tar.gz`,
-  url: `https://debian.org{ortVersion}+dfsg.orig.tar.xz`,
-  sha256: '', // Optional: populate after first run to enforce strict pinning
+const nugetOrtAsset = {
+  name: `microsoft.ml.onnxruntime.${ortVersion}.nupkg`,
+  url: `https://nuget.org{ortVersion}/microsoft.ml.onnxruntime.${ortVersion}.nupkg`,
 };
 
-=======
-const runtimeAsset = {
-  name: 'ort-linux.tgz',
-  url: 'https://github.com/microsoft/onnxruntime/releases/download/v1.22.0/onnxruntime-linux-x64-1.22.0.tgz',
-  sha256: '8344d55f93d5bc5021ce342db50f62079daf39aaafb5d311a451846228be49b3',
-};
-
->>>>>>> parent of 5f36011 (Update setup-engine.mjs)
 async function sha256(filename) {
   const hash = createHash('sha256');
   for await (const chunk of createReadStream(filename)) hash.update(chunk);
   return hash.digest('hex');
-}
-
-async function resolvePyPiWheel(version) {
-  const metaUrl = `https://pypi.org{version}/json`;
-  const res = await fetch(metaUrl, { headers: { 'User-Agent': 'Shogi-App-Engine-Setup/1.0' } });
-  if (!res.ok) throw new Error(`PyPI metadata lookup failed: HTTP ${res.status}`);
-  const data = await res.json();
-  const wheel = data.urls.find(
-    (u) => u.packagetype === 'bdist_wheel' && u.filename.includes('manylinux') && u.filename.endsWith('x86_64.whl')
-  );
-  if (!wheel) throw new Error(`No Linux x86_64 wheel found on PyPI for onnxruntime ${version}`);
-  return {
-    name: wheel.filename,
-    url: wheel.url,
-    sha256: wheel.digests.sha256,
-  };
 }
 
 async function download(asset) {
@@ -93,36 +65,45 @@ function run(command, args, options = {}) {
 async function installLinux() {
   const build = path.join(cache, 'engine-build');
   const linux = path.join(destination, 'linux');
-  const wheelExtract = path.join(build, 'ort-wheel');
+  const nupkgExtract = path.join(build, 'ort-nupkg');
   const runtime = path.join(build, `onnxruntime-linux-x64-${ortVersion}`);
 
   await mkdir(build, { recursive: true });
   await mkdir(linux, { recursive: true });
-  await mkdir(wheelExtract, { recursive: true });
+  await mkdir(nupkgExtract, { recursive: true });
   await mkdir(path.join(runtime, 'include'), { recursive: true });
   await mkdir(path.join(runtime, 'lib'), { recursive: true });
 
-  // 1. Download YaneuraOu source
+  // 1. Download & extract YaneuraOu source
   run('tar', ['xzf', await download(sourceAsset), '-C', build]);
 
-  // 2. Download & extract libonnxruntime.so + licenses from PyPI wheel
-  const wheelAsset = await resolvePyPiWheel(ortVersion);
-  const wheelPath = await download(wheelAsset);
-  run('unzip', ['-o', wheelPath, 'onnxruntime/capi/libonnxruntime.so*', 'onnxruntime/LICENSE', 'onnxruntime/ThirdPartyNotices.txt', '-d', wheelExtract]);
-
-  const soFilename = `libonnxruntime.so.${ortVersion}`;
-  await copyFile(path.join(wheelExtract, 'onnxruntime/capi', soFilename), path.join(runtime, 'lib', soFilename));
-  await copyFile(path.join(wheelExtract, 'onnxruntime/LICENSE'), path.join(runtime, 'LICENSE'));
-  await copyFile(path.join(wheelExtract, 'onnxruntime/ThirdPartyNotices.txt'), path.join(runtime, 'ThirdPartyNotices.txt'));
-
-  // 3. Download & extract C/C++ session headers from source tarball
-  const headersTar = await download(ortHeadersAsset);
-  run('tar', [
-    '-xf', headersTar,
-    '-C', path.join(runtime, 'include'),
-    '--strip-components=5',
-    '--wildcards', '*/include/onnxruntime/core/session/*.h',
+  // 2. Download & extract ONNX Runtime headers + Linux x64 .so from NuGet (.nupkg is a ZIP)
+  const nupkgPath = await download(nugetOrtAsset);
+  run('unzip', [
+    '-o',
+    nupkgPath,
+    'build/native/include/*',
+    'runtimes/linux-x64/native/*',
+    'LICENSE.txt',
+    'ThirdPartyNotices.txt',
+    '-d',
+    nupkgExtract,
   ]);
+
+  // Copy headers into runtime/include
+  const extractedInclude = path.join(nupkgExtract, 'build/native/include');
+  for (const file of await readdir(extractedInclude)) {
+    await copyFile(path.join(extractedInclude, file), path.join(runtime, 'include', file));
+  }
+
+  // Copy shared library into runtime/lib with versioned filename expected by linker
+  const soFilename = `libonnxruntime.so.${ortVersion}`;
+  await copyFile(
+    path.join(nupkgExtract, 'runtimes/linux-x64/native/libonnxruntime.so'),
+    path.join(runtime, 'lib', soFilename)
+  );
+  await copyFile(path.join(nupkgExtract, 'LICENSE.txt'), path.join(runtime, 'LICENSE'));
+  await copyFile(path.join(nupkgExtract, 'ThirdPartyNotices.txt'), path.join(runtime, 'ThirdPartyNotices.txt'));
 
   const source = path.join(build, `YaneuraOu-${sourceCommit}`);
 
@@ -155,7 +136,7 @@ async function installLinux() {
   await copyFile(path.join(source, 'source/YaneuraOu'), path.join(linux, 'YaneuraOu'));
   await chmod(path.join(linux, 'YaneuraOu'), 0o755);
 
-  // Copy real files for both loader names so Vercel file tracing never depends on symlinks
+  // Copy real files for both loader names so Vercel tracing never depends on symlinks
   for (const name of ['libonnxruntime.so.1', soFilename]) {
     await copyFile(path.join(runtime, 'lib', soFilename), path.join(linux, name));
   }
@@ -164,7 +145,7 @@ async function installLinux() {
   await copyFile(path.join(runtime, 'LICENSE'), path.join(linux, 'ONNXRuntime-LICENSE.txt'));
   await copyFile(path.join(runtime, 'ThirdPartyNotices.txt'), path.join(linux, 'ONNXRuntime-ThirdPartyNotices.txt'));
 
-  // Extract NNUE/DL model
+  // Extract model
   run('unzip', ['-o', await download(modelAsset), 'model-0000225kai.onnx', '-d', path.join(destination, 'eval')]);
 
   await writeFile(
@@ -177,7 +158,7 @@ async function installLinux() {
         onnxRuntime: ortVersion,
         inferenceThreads: 1,
         patch: 'SetIntraOpNumThreads(1); SetInterOpNumThreads(1);',
-        assets: [sourceAsset, wheelAsset, ortHeadersAsset, modelAsset],
+        assets: [sourceAsset, nugetOrtAsset, modelAsset],
         builtAt: new Date().toISOString(),
       },
       null,
@@ -185,7 +166,7 @@ async function installLinux() {
     )
   );
 
-  // Run smoke test
+  // Smoke test
   run(process.execPath, ['scripts/engine-smoke.mjs'], {
     env: { ...process.env, SMOKE_PLIES: '2', YANEURAOU_REQUEST_SCOPED: '1' },
   });
