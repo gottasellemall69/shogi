@@ -26,9 +26,16 @@ const sourceAsset = {
   url: 'https://github.com',
   sha256: '4d40f46372b7979ecbb33acf8587473f2740ffd0a0480d27fbb13fb41f6d52a3',
 };
+<<<<<<< HEAD
 const nugetOrtAsset = {
   name: 'microsoft.ml.onnxruntime.1.22.0.nupkg',
   url: 'https://nuget.org',
+=======
+const runtimeAsset = {
+  name: 'ort-linux.tgz',
+  url: 'https://github.com/microsoft/onnxruntime/releases/download/v1.22.0/onnxruntime-linux-x64-1.22.0.tgz',
+  sha256: '8344d55f93d5bc5021ce342db50f62079daf39aaafb5d311a451846228be49b3',
+>>>>>>> parent of 5f36011 (Update setup-engine.mjs)
 };
 
 async function sha256(filename) {
