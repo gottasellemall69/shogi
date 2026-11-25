@@ -32,7 +32,7 @@
     "tailwindcss": "4.3.3"
   },
   "engines": {
-    "node": "22.x"
+    "node": ">=22.0.0"
   },
   "overrides": {
     "postcss": "$postcss"
