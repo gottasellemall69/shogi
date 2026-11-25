@@ -23,12 +23,12 @@ const windowsAsset = {
 };
 const sourceAsset = {
   name: 'yaneuraou-source.tar.gz',
-  url: `https://github.com{sourceCommit}.tar.gz`,
+  url: 'https://github.com' + sourceCommit,
   sha256: '4d40f46372b7979ecbb33acf8587473f2740ffd0a0480d27fbb13fb41f6d52a3',
 };
 const nugetOrtAsset = {
-  name: `microsoft.ml.onnxruntime.${ortVersion}.nupkg`,
-  url: `https://nuget.org{ortVersion}/microsoft.ml.onnxruntime.${ortVersion}.nupkg`,
+  name: 'microsoft.ml.onnxruntime.' + ortVersion + '.nupkg',
+  url: 'https://nuget.org' + ortVersion + '/microsoft.ml.onnxruntime.' + ortVersion + '.nupkg',
 };
 
 async function sha256(filename) {
@@ -40,15 +40,15 @@ async function sha256(filename) {
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, { cwd: root, windowsHide: true, stdio: 'inherit', ...options });
   if (result.error || result.status !== 0) {
-    throw new Error(`${command} ${args.join(' ')} failed: ${result.error?.message || `exit code ${result.status}`}`);
+    throw new Error(command + ' ' + args.join(' ') + ' failed: ' + (result.error?.message || ('exit code ' + result.status)));
   }
 }
 
 async function download(asset) {
   const filename = path.join(cache, asset.name);
   if (existsSync(filename) && (!asset.sha256 || await sha256(filename) === asset.sha256)) return filename;
-  console.log(`Downloading ${asset.name} from ${asset.url}...`);
-  const temporary = `${filename}.partial`;
+  console.log('Downloading ' + asset.name + ' from ' + asset.url + '...');
+  const temporary = filename + '.partial';
 
   if (process.platform === 'linux') {
     run('curl', ['-fsSL', '--retry', '3', '--retry-delay', '2', '-A', 'Shogi-App-Engine-Setup/1.0', asset.url, '-o', temporary]);
@@ -57,7 +57,7 @@ async function download(asset) {
       headers: { 'User-Agent': 'Shogi-App-Engine-Setup/1.0' },
       signal: AbortSignal.timeout(300000),
     });
-    if (!response.ok) throw new Error(`Download failed: HTTP ${response.status} (${asset.url})`);
+    if (!response.ok) throw new Error('Download failed: HTTP ' + response.status + ' (' + asset.url + ')');
     const { createWriteStream } = await import('node:fs');
     const { Readable } = await import('node:stream');
     const { pipeline } = await import('node:stream/promises');
@@ -65,7 +65,7 @@ async function download(asset) {
   }
 
   if (asset.sha256 && await sha256(temporary) !== asset.sha256) {
-    throw new Error(`Checksum mismatch for ${asset.name}; refusing to extract.`);
+    throw new Error('Checksum mismatch for ' + asset.name + '; refusing to extract.');
   }
   await rename(temporary, filename);
   return filename;
@@ -75,7 +75,7 @@ async function installLinux() {
   const build = path.join(cache, 'engine-build');
   const linux = path.join(destination, 'linux');
   const nupkgExtract = path.join(build, 'ort-nupkg');
-  const runtime = path.join(build, `onnxruntime-linux-x64-${ortVersion}`);
+  const runtime = path.join(build, 'onnxruntime-linux-x64-' + ortVersion);
 
   await mkdir(build, { recursive: true });
   await mkdir(linux, { recursive: true });
@@ -95,7 +95,7 @@ async function installLinux() {
     await copyFile(path.join(extractedInclude, file), path.join(runtime, 'include', file));
   }
 
-  const soFilename = `libonnxruntime.so.${ortVersion}`;
+  const soFilename = 'libonnxruntime.so.' + ortVersion;
   await copyFile(
     path.join(nupkgExtract, 'runtimes/linux-x64/native/libonnxruntime.so'),
     path.join(runtime, 'lib', soFilename)
@@ -107,7 +107,7 @@ async function installLinux() {
     await copyFile(path.join(nupkgExtract, 'ThirdPartyNotices.txt'), path.join(runtime, 'ThirdPartyNotices.txt'));
   }
 
-  const source = path.join(build, `YaneuraOu-${sourceCommit}`);
+  const source = path.join(build, 'YaneuraOu-' + sourceCommit);
 
   // Limit ONNX Runtime inference threads to 1
   const ortFile = path.join(source, 'source/eval/deep/nn_onnx_runtime.cpp');
@@ -116,7 +116,7 @@ async function installLinux() {
   if (!upstream.includes(marker)) throw new Error('Pinned ONNX thread patch no longer applies.');
   await writeFile(
     ortFile,
-    upstream.replace(marker, `${marker}\n\t\tsession_options.SetIntraOpNumThreads(1);\n\t\tsession_options.SetInterOpNumThreads(1);`)
+    upstream.replace(marker, marker + '\n\t\tsession_options.SetIntraOpNumThreads(1);\n\t\tsession_options.SetInterOpNumThreads(1);')
   );
 
   // Compile YaneuraOu
@@ -128,8 +128,8 @@ async function installLinux() {
       'COMPILER=g++',
       'TARGET_CPU=SSE2',
       'TARGET=YaneuraOu',
-      `EXTRA_CPPFLAGS=-I${runtime}/include`,
-      `EXTRA_LDFLAGS=-L${runtime}/lib`,
+      'EXTRA_CPPFLAGS=-I' + runtime + '/include',
+      'EXTRA_LDFLAGS=-L' + runtime + '/lib',
       'all',
     ],
     { cwd: path.join(source, 'source') }
@@ -187,8 +187,8 @@ async function installWindows() {
     .filter(Boolean)
     .find((candidate) => spawnSync(candidate, ['i'], { windowsHide: true, stdio: 'ignore' }).status === 0);
   if (!sevenZip) throw new Error('Install 7-Zip or set SEVEN_ZIP_PATH to its 7z.exe, then rerun setup.');
-  run(sevenZip, ['x', await download(windowsAsset), `-o${destination}`, '-y']);
-  run(sevenZip, ['x', await download(modelAsset), 'model-0000225kai.onnx', `-o${path.join(destination, 'eval')}`, '-y']);
+  run(sevenZip, ['x', await download(windowsAsset), '-o' + destination, '-y']);
+  run(sevenZip, ['x', await download(modelAsset), 'model-0000225kai.onnx', '-o' + path.join(destination, 'eval'), '-y']);
   await writeFile(
     path.join(destination, 'installation.json'),
     JSON.stringify(
