@@ -23,12 +23,12 @@ const windowsAsset = {
 };
 const sourceAsset = {
   name: 'yaneuraou-source.tar.gz',
-  url: 'https://github.com' + sourceCommit,
+  url: 'https://github.com',
   sha256: '4d40f46372b7979ecbb33acf8587473f2740ffd0a0480d27fbb13fb41f6d52a3',
 };
 const nugetOrtAsset = {
-  name: 'microsoft.ml.onnxruntime.' + ortVersion + '.nupkg',
-  url: 'https://nuget.org' + ortVersion + '/microsoft.ml.onnxruntime.' + ortVersion + '.nupkg',
+  name: 'microsoft.ml.onnxruntime.1.22.0.nupkg',
+  url: 'https://nuget.org',
 };
 
 async function sha256(filename) {
@@ -75,7 +75,7 @@ async function installLinux() {
   const build = path.join(cache, 'engine-build');
   const linux = path.join(destination, 'linux');
   const nupkgExtract = path.join(build, 'ort-nupkg');
-  const runtime = path.join(build, 'onnxruntime-linux-x64-' + ortVersion);
+  const runtime = path.join(build, 'onnxruntime-linux-x64-1.22.0');
 
   await mkdir(build, { recursive: true });
   await mkdir(linux, { recursive: true });
@@ -83,10 +83,8 @@ async function installLinux() {
   await mkdir(path.join(runtime, 'include'), { recursive: true });
   await mkdir(path.join(runtime, 'lib'), { recursive: true });
 
-  // 1. Download & extract YaneuraOu source
   run('tar', ['xzf', await download(sourceAsset), '-C', build]);
 
-  // 2. Download & extract ONNX Runtime headers + Linux x64 .so from NuGet (.nupkg is a ZIP)
   const nupkgPath = await download(nugetOrtAsset);
   run('bsdtar', ['-xf', nupkgPath, '-C', nupkgExtract]);
 
@@ -95,7 +93,7 @@ async function installLinux() {
     await copyFile(path.join(extractedInclude, file), path.join(runtime, 'include', file));
   }
 
-  const soFilename = 'libonnxruntime.so.' + ortVersion;
+  const soFilename = 'libonnxruntime.so.1.22.0';
   await copyFile(
     path.join(nupkgExtract, 'runtimes/linux-x64/native/libonnxruntime.so'),
     path.join(runtime, 'lib', soFilename)
@@ -107,9 +105,8 @@ async function installLinux() {
     await copyFile(path.join(nupkgExtract, 'ThirdPartyNotices.txt'), path.join(runtime, 'ThirdPartyNotices.txt'));
   }
 
-  const source = path.join(build, 'YaneuraOu-' + sourceCommit);
+  const source = path.join(build, 'YaneuraOu-717da871e7a620702b8b9433bd8f9f181710435a');
 
-  // Limit ONNX Runtime inference threads to 1
   const ortFile = path.join(source, 'source/eval/deep/nn_onnx_runtime.cpp');
   const upstream = await readFile(ortFile, 'utf8');
   const marker = 'session_options.SetExecutionMode(ORT_SEQUENTIAL);';
@@ -119,7 +116,6 @@ async function installLinux() {
     upstream.replace(marker, marker + '\n\t\tsession_options.SetIntraOpNumThreads(1);\n\t\tsession_options.SetInterOpNumThreads(1);')
   );
 
-  // Compile YaneuraOu
   run(
     'make',
     [
@@ -150,7 +146,6 @@ async function installLinux() {
     await copyFile(path.join(runtime, 'ThirdPartyNotices.txt'), path.join(linux, 'ONNXRuntime-ThirdPartyNotices.txt'));
   }
 
-  // Extract model
   run('bsdtar', ['-xf', await download(modelAsset), '-C', path.join(destination, 'eval'), 'model-0000225kai.onnx']);
 
   await writeFile(
@@ -171,7 +166,6 @@ async function installLinux() {
     )
   );
 
-  // Smoke test
   run(process.execPath, ['scripts/engine-smoke.mjs'], {
     env: { ...process.env, SMOKE_PLIES: '2', YANEURAOU_REQUEST_SCOPED: '1' },
   });
